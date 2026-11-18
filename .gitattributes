@@ -1,0 +1,3 @@
+* text=auto eol=lf
+# Installed skill identity is byte-exact across Windows and Linux.
+skills/** -text whitespace=trailing-space,space-before-tab,cr-at-eol
