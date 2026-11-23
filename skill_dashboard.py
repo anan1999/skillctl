@@ -34,17 +34,27 @@ class Dashboard:
             raise ValueError('Unknown target; use a configured target from the page.')
         return Manager(self.source, self.targets[target]['path'], self.state)
 
-    def inventory(self):
+    def configuration(self):
+        # No filesystem scan: refresh can show the configured scope immediately.
+        return {'source': str(self.source), 'targets': [
+            {'id': target_id, **config} for target_id, config in self.targets.items()]}
+
+    def inventory(self, target=None):
+        if target is not None and target not in self.targets:
+            raise ValueError('Unknown target; use a configured target from the page.')
         targets = []
         for target_id, config in self.targets.items():
+            if target is not None and target != target_id:
+                continue
             try:
                 m = self.manager(target_id)
                 rows = m.scan()
+                db = m.db()
                 found = {row['name'] for row in rows if Path(row['path']).parent == m.target}
                 for name in m.names:
                     if name not in found:
                         try:
-                            rows.append({**m.inspect(name, m.db()), 'path': str(m.target / name), 'adoptable': False})
+                            rows.append({**m.inspect(name, db), 'path': str(m.target / name), 'adoptable': False})
                         except (ValueError, OSError) as error:
                             rows.append({'name': name, 'status': 'invalid', 'error': str(error), 'adoptable': False})
                 for row in rows:
@@ -56,9 +66,15 @@ class Dashboard:
                         text = (folder / 'SKILL.md').read_text(encoding='utf-8-sig')
                         match = re.search(r'^description:\s*(.+)$', text, re.M)
                         row['description'] = match[1] if match else ''
-                    row['managed'] = row['name'] in m.db()['installed'] and Path(row.get('path', '')).parent == m.target
+                    row['present'] = row['status'] != 'linked' and (folder / 'SKILL.md').is_file()
+                    row['managed'] = row['name'] in db['installed'] and folder.parent == m.target
                     row['has_source'] = row['name'] in m.sources
-                targets.append({'id': target_id, **config, 'skills': rows})
+                installed = sum(row['present'] for row in rows)
+                managed = sum(row['present'] and row['managed'] for row in rows)
+                counts = {'installed': installed, 'managed': managed, 'unmanaged': installed - managed,
+                          'missing': sum(not row['present'] and row['has_source'] and row['status'] != 'linked' for row in rows),
+                          'attention': sum(row['status'] in ('invalid', 'linked', 'nested') for row in rows)}
+                targets.append({'id': target_id, **config, 'skills': rows, 'counts': counts})
             except (ValueError, OSError) as error:
                 targets.append({'id': target_id, **config, 'skills': [], 'error': str(error)})
         return {'source': str(self.source), 'targets': targets}
@@ -149,9 +165,12 @@ def make_server(app, port=0):
                     if path.path == '/':
                         data = data.replace(b'__SESSION_TOKEN__', app.secret.encode())
                     self.reply(200, data, mime + '; charset=utf-8')
+                elif path.path == '/api/config':
+                    self.reply(200, app.configuration())
                 elif path.path == '/api/inventory':
+                    query = parse_qs(path.query)
                     with app.lock:
-                        self.reply(200, app.inventory())
+                        self.reply(200, app.inventory(query.get('target', [None])[0]))
                 elif path.path == '/api/detail':
                     query = parse_qs(path.query)
                     with app.lock:

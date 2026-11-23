@@ -2,7 +2,7 @@
 
 Date: 2026-11-23. Native Windows, Python 3.11.2 and local Google Chrome.
 
-Result: **44 Python tests passed**, including nine dashboard HTTP tests. The
+Result: **46 Python tests passed**, including eleven dashboard HTTP tests. The
 reusable Chrome browser test also passed against the final server and public demo.
 Desktop and mobile screenshots were visually inspected.
 
@@ -16,6 +16,12 @@ unconfigured targets, invalid skill names and altered apply parameters are rejec
 The actual browser test clicks the rendered controls and checks resulting files:
 
 - Scan, Chinese description search, empty search and target switching.
+- Refresh restores the selected target and rescans only that directory.
+- Configuration and loading feedback appear while a scan is pending; unloaded is not shown as zero.
+- Failed scans preserve clearly labelled old results, disable their actions and allow retry.
+- A 30-second scan timeout releases the controls and allows retry.
+- Counts distinguish physical installations, managed receipts and missing upstream skills;
+  adoption updates managed counts without changing the installed count.
 - Adoption preview leaves files untouched; apply retains existing contents.
 - Merge preview leaves files untouched; apply contains both LOCAL and UPSTREAM.
 - Overlapping edits render conflict text and disable Apply; keep retains local bytes.

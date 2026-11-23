@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 
 from skill_dashboard import Dashboard, make_server
 from skillctl import fingerprint
@@ -69,6 +70,34 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('textContent', self.request('/dashboard.js'))
         self.assertIn('@media', self.request('/dashboard.css'))
         self.request('/../skillctl.py', code=404)
+
+    def test_config_is_immediate_and_scan_is_limited_to_requested_target(self):
+        self.app.targets['1'] = {'label': 'Other target', 'path': str(self.root / 'other')}
+        with patch.object(self.app, 'manager', side_effect=AssertionError('config must not scan')):
+            config = self.request('/api/config')
+        self.assertEqual(['0', '1'], [t['id'] for t in config['targets']])
+        with patch.object(self.app, 'manager', wraps=self.app.manager) as manager:
+            result = self.request('/api/inventory?target=0')
+        manager.assert_called_once_with('0')
+        self.assertEqual(['0'], [t['id'] for t in result['targets']])
+        self.request('/api/inventory?target=unknown', code=400)
+        self.request('/api/config', code=403, headers={'X-Skillctl-Token': ''})
+
+    def test_counts_distinguish_installed_managed_missing_and_invalid(self):
+        other = self.source / 'not-installed'
+        other.mkdir()
+        (other / 'SKILL.md').write_text('---\nname: not-installed\ndescription: Missing\n---\n')
+        broken = self.target / 'broken'
+        broken.mkdir()
+        (broken / 'SKILL.md').write_text('Missing frontmatter')
+        counts = self.request('/api/inventory?target=0')['targets'][0]['counts']
+        self.assertEqual({'installed': 2, 'managed': 0, 'unmanaged': 2, 'missing': 1, 'attention': 1}, counts)
+        self.adopt()
+        counts = self.request('/api/inventory?target=0')['targets'][0]['counts']
+        self.assertEqual((2, 1, 1), (counts['installed'], counts['managed'], counts['unmanaged']))
+        shutil.rmtree(self.local)
+        counts = self.request('/api/inventory?target=0')['targets'][0]['counts']
+        self.assertEqual((1, 0, 2), (counts['installed'], counts['managed'], counts['missing']))
 
     def test_adopt_then_merge_keeps_local_and_adds_upstream(self):
         self.adopt()

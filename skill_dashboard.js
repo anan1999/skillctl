@@ -14,34 +14,48 @@ const reasons = {current:'本機檔案與上游、安裝收據一致。','update
   'source-unbound':'此副本尚未建立上游基準。檢查差異後，使用保留建立基準。',
   missing:'此位置尚未安裝。請先使用 skillctl install 安裝技能。'};
 let inventory, selected, plan, busy = false;
+let fresh = false;
 const target = () => inventory?.targets.find(t => t.id === $('target').value);
 function node(tag, text, cls) { const el = document.createElement(tag); if(text !== undefined) el.textContent = text; if(cls) el.className = cls; return el; }
 function notice(text, error=false) { $('notice').textContent = text; $('notice').className = error ? 'error' : ''; }
 function clearPlan() { plan = null; $('preview').hidden = true; $('apply').disabled = true; }
 function controls() {
   $('refresh').disabled = busy; $('target').disabled = busy;
-  document.querySelectorAll('#rows button').forEach(b => b.disabled = busy || b.dataset.unavailable === 'true');
-  const ready = selected && !['missing','nested','linked','invalid'].includes(selected.status);
+  document.querySelectorAll('#rows button').forEach(b => b.disabled = busy || !fresh || b.dataset.unavailable === 'true');
+  const ready = fresh && selected && !['missing','nested','linked','invalid'].includes(selected.status);
   $('adopt').disabled = busy || !ready || selected?.managed;
   $('keep').disabled = busy || !ready || !selected?.managed || !selected?.has_source;
   $('merge').disabled = busy || !ready || !selected?.managed || !selected?.has_source;
   $('apply').disabled = busy || !plan?.plan_id; $('cancel').disabled = busy;
 }
 async function api(path, body) {
-  const response = await fetch(path, {method:body ? 'POST':'GET', headers:{'X-Skillctl-Token':token, ...(body ? {'Content-Type':'application/json'}:{})}, ...(body ? {body:JSON.stringify(body)}:{})});
-  const data = await response.json(); if(!response.ok) throw new Error(data.error || '請求失敗'); return data;
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(),30000);
+  try {
+    const response = await fetch(path, {signal:controller.signal,method:body ? 'POST':'GET', headers:{'X-Skillctl-Token':token, ...(body ? {'Content-Type':'application/json'}:{})}, ...(body ? {body:JSON.stringify(body)}:{})});
+    const data = await response.json(); if(!response.ok) throw new Error(data.error || '請求失敗'); return data;
+  } catch(error) {
+    if(error.name === 'AbortError') throw new Error('等候超過 30 秒。請確認本機服務仍在執行，再按「重新掃描」；若剛才正在套用，結果尚未確認，請先掃描確認');
+    if(error instanceof TypeError) throw new Error('無法連線到本機服務。請確認服務仍在執行，再按「重新掃描」');
+    throw error;
+  } finally { clearTimeout(timer); }
 }
 async function task(work) {
-  if(busy) return; busy = true; controls();
-  try { await work(); } catch(error) { clearPlan(); notice(error.message + '；請重新檢查並預覽。', true); }
+  if(busy) return; busy = true;
+  try { controls(); await work(); } catch(error) {
+    clearPlan();
+    notice(error.message + '；請重新檢查並預覽。' + (!fresh && target()?.skills ? ' 下方為上次結果，尚未更新。' : ''), true);
+  }
   finally { busy = false; controls(); }
 }
 function renderRows() {
   const t = target(); $('rows').replaceChildren(); $('target-path').textContent = t?.path || '';
   const query = $('query').value.toLocaleLowerCase().trim();
   const rows = (t?.skills || []).filter(r => [r.name,r.description,labels[r.status]].join(' ').toLocaleLowerCase().includes(query));
-  $('count').textContent = `${rows.length} / ${t?.skills.length || 0}`;
-  $('empty').hidden = rows.length > 0;
+  $('count').textContent = t?.skills ? `顯示 ${rows.length} / ${t.skills.length}` : '待掃描';
+  $('empty').hidden = !t?.skills || rows.length > 0;
+  const c = t?.counts;
+  $('stats').textContent = c ? `本機已有 ${c.installed} · 已納管 ${c.managed} · 未納管 ${c.unmanaged} · 尚未安裝 ${c.missing} · 需檢查 ${c.attention}` : '尚未完成掃描，數量待確認。';
   if(t?.error) notice(t.error, true);
   for(const row of rows) {
     const tr = node('tr', undefined, selected?.path === row.path ? 'active-row':'');
@@ -87,12 +101,28 @@ async function selectSkill(row) {
   $('hashes').append(node('pre',JSON.stringify({local:data.local_files,upstream:data.upstream_files,receipt:data.receipt},null,2)));
 }
 async function load(preserve=false) {
-  const oldTarget = $('target').value, oldName = preserve ? selected?.name : null;
-  inventory = await api('/api/inventory'); clearPlan(); selected = null;
-  $('source').textContent = inventory.source; $('target').replaceChildren();
-  for(const t of inventory.targets) { const option = node('option',t.label); option.value = t.id; $('target').append(option); }
-  if(inventory.targets.some(t => t.id === oldTarget)) $('target').value = oldTarget;
+  const oldName = preserve ? selected?.name : null;
+  clearPlan(); selected = null; fresh = false;
+  if(!inventory) {
+    notice('正在連線並載入管理位置…');
+    inventory = await api('/api/config');
+    $('source').textContent = inventory.source; $('target').replaceChildren();
+    for(const t of inventory.targets) { const option = node('option',t.label); option.value = t.id; $('target').append(option); }
+    try {
+      const previous = sessionStorage.getItem('skillctl-target-path');
+      const remembered = inventory.targets.find(t=>t.path === previous);
+      if(remembered) $('target').value = remembered.id;
+    } catch(_) { /* Storage may be disabled; scanning still works. */ }
+  }
+  const t = target();
+  try { sessionStorage.setItem('skillctl-target-path',t.path); } catch(_) {}
   $('welcome').hidden = false; $('selected').hidden = true; renderRows();
+  notice(`正在掃描 ${t.label} 並核對檔案雜湊…${t.skills ? ' 下方為上次結果，完成後更新。' : ' 數量待確認，尚未載入不代表沒有技能。'}`);
+  const result = await api('/api/inventory?' + new URLSearchParams({target:t.id}));
+  const scanned = result.targets[0];
+  if(scanned.error) throw new Error(scanned.error);
+  Object.assign(t,scanned); fresh=true; renderRows();
+  notice(`已完成 ${t.label} 掃描（${new Date().toLocaleTimeString()}）。統計僅涵蓋此位置。`);
   const row = target()?.skills.find(r => r.name === oldName);
   if(row) await selectSkill(row);
 }
@@ -118,7 +148,7 @@ async function preview(action) {
   $('preview').scrollIntoView({block:'nearest',behavior:'smooth'}); controls();
 }
 $('query').addEventListener('input',renderRows);
-$('target').addEventListener('change',() => { selected=null;clearPlan();$('selected').hidden=true;$('welcome').hidden=false;notice('');renderRows(); });
+$('target').addEventListener('change',()=>task(()=>load()));
 $('refresh').addEventListener('click',()=>task(async()=>{notice('');await load();}));
 for(const action of ['adopt','keep','merge']) $(action).addEventListener('click',()=>task(()=>preview(action)));
 $('cancel').addEventListener('click',()=>{clearPlan();controls();notice('已取消預覽；尚未套用。');});

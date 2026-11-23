@@ -13,7 +13,8 @@
   <header><div><p class="eyebrow">SKILLCTL / 本機管理</p><h1>讓每一次更新都有依據。</h1>
     <p class="muted">掃描現有技能，查看差異，再決定保留或合併本機修改。</p></div>
     <button id="refresh" type="button">重新掃描</button></header>
-  <div id="notice" role="status" aria-live="polite"></div>
+  <div id="notice" role="status" aria-live="polite">正在連線並載入管理位置…</div>
+  <noscript>請啟用 JavaScript 才能載入技能清單。</noscript>
   <section class="panel controls" aria-label="技能來源與安裝位置">
     <div><label for="target">管理位置</label><select id="target"></select><p id="target-path" class="path"></p></div>
     <div><label for="query">搜尋技能或描述</label><input id="query" type="search" placeholder="輸入名稱、中文症狀或狀態" autocomplete="off"></div>
@@ -21,7 +22,9 @@
   </section>
   <div class="workspace">
     <section class="panel inventory" aria-label="掃描結果">
-      <div class="section-heading"><h2>現有 Skills</h2><span id="count" class="muted"></span></div>
+      <div class="section-heading"><h2>Skills 清單</h2><span id="count" class="muted"></span></div>
+      <p id="stats" class="muted small" aria-live="polite">尚未完成掃描，數量待確認。</p>
+      <p class="muted small">僅統計目前管理位置；已納管表示有 skillctl 收據，不代表 agent 已載入或使用次數。</p>
       <div class="table-scroll"><table><thead><tr><th>技能</th><th>狀態</th><th>操作</th></tr></thead><tbody id="rows"></tbody></table></div>
       <p id="empty" class="empty" hidden>沒有符合條件的技能。</p>
     </section>
