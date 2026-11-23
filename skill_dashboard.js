@@ -15,12 +15,22 @@ const reasons = {current:'本機檔案與上游、安裝收據一致。','update
   missing:'此位置尚未安裝。請先使用 skillctl install 安裝技能。'};
 let inventory, selected, plan, busy = false;
 let fresh = false;
+let activeFilter = 'all', comparison = null, activeFile = null, diffMode = 'unified';
+const matchesFilter = (row, filter) => ({
+  all: true, unmanaged: row.present && !row.managed,
+  modified: ['local-drift','customized','unmanaged-conflict'].includes(row.status),
+  updates: row.status === 'update-available',
+  attention: ['invalid','linked','nested'].includes(row.status),
+  missing: !row.present && row.has_source && row.status !== 'linked'
+})[filter];
 const target = () => inventory?.targets.find(t => t.id === $('target').value);
 function node(tag, text, cls) { const el = document.createElement(tag); if(text !== undefined) el.textContent = text; if(cls) el.className = cls; return el; }
 function notice(text, error=false) { $('notice').textContent = text; $('notice').className = error ? 'error' : ''; }
 function clearPlan() { plan = null; $('preview').hidden = true; $('apply').disabled = true; }
 function controls() {
   $('refresh').disabled = busy; $('target').disabled = busy;
+  document.querySelectorAll('#filters button').forEach(b=>b.disabled=busy);
+  $('close-detail').disabled = busy; $('reset-search').disabled = busy;
   document.querySelectorAll('#rows button').forEach(b => b.disabled = busy || !fresh || b.dataset.unavailable === 'true');
   const ready = fresh && selected && !['missing','nested','linked','invalid'].includes(selected.status);
   $('adopt').disabled = busy || !ready || selected?.managed;
@@ -51,19 +61,28 @@ async function task(work) {
 function renderRows() {
   const t = target(); $('rows').replaceChildren(); $('target-path').textContent = t?.path || '';
   const query = $('query').value.toLocaleLowerCase().trim();
-  const rows = (t?.skills || []).filter(r => [r.name,r.description,labels[r.status]].join(' ').toLocaleLowerCase().includes(query));
+  const rows = (t?.skills || []).filter(r => matchesFilter(r,activeFilter) && [r.name,r.description,labels[r.status]].join(' ').toLocaleLowerCase().includes(query));
+  document.querySelectorAll('#filters button').forEach(b=>{
+    b.setAttribute('aria-pressed',String(b.dataset.filter===activeFilter));
+    b.querySelector('.filter-count').textContent=t?.skills ? t.skills.filter(r=>matchesFilter(r,b.dataset.filter)).length : '—';
+  });
   $('count').textContent = t?.skills ? `顯示 ${rows.length} / ${t.skills.length}` : '待掃描';
   $('empty').hidden = !t?.skills || rows.length > 0;
   const c = t?.counts;
+  $('metrics').replaceChildren();
+  for(const [key,title,note] of [['installed','本機已有','找到的技能'],['managed','已納管','已有管理收據'],['unmanaged','未納管','可先檢查再接管'],['missing','尚未安裝','僅在上游來源']]) {
+    const card=node('div',undefined,'metric');card.append(node('span',title,'metric-label'),node('span',c ? c[key] : '—','metric-value'),node('span',note,'metric-note'));$('metrics').append(card);
+  }
   $('stats').textContent = c ? `本機已有 ${c.installed} · 已納管 ${c.managed} · 未納管 ${c.unmanaged} · 尚未安裝 ${c.missing} · 需檢查 ${c.attention}` : '尚未完成掃描，數量待確認。';
   if(t?.error) notice(t.error, true);
   for(const row of rows) {
     const tr = node('tr', undefined, selected?.path === row.path ? 'active-row':'');
-    const cell = node('td'); cell.append(node('div',row.name,'skill-label'),node('div',row.description || row.error || '', 'description'));
+    const cell = node('td'); cell.title=row.name+'\n'+(row.description || row.error || '');cell.append(node('div',row.name,'skill-label'),node('div',row.description || row.error || '尚無用途說明', 'description'));
     const status = node('td'); status.append(node('span',labels[row.status] || row.status, 'badge ' + (row.status === 'invalid' ? 'bad' : /drift|conflict|customized/.test(row.status) ? 'warn':'')));
-    const action = node('td'); const button = node('button','檢視'); button.type = 'button'; button.setAttribute('aria-label','檢視 ' + row.name);
+    const action = node('td'); const button = node('button','↗'); button.type = 'button'; button.setAttribute('aria-label','檢視 ' + row.name);
     button.dataset.unavailable = String(['nested','linked','invalid'].includes(row.status));
     button.addEventListener('click', () => task(() => selectSkill(row)));
+    tr.addEventListener('click',event=>{if(!event.target.closest('button')&&!button.disabled)button.click();});
     if(button.dataset.unavailable === 'true') button.title = row.advice || row.error || '請使用正確的目錄或修復技能後再掃描';
     action.append(button); tr.append(cell,status,action); $('rows').append(tr);
   }
@@ -77,21 +96,47 @@ function patch(container, title, content, open=false) {
   }
   detail.append(pre); container.append(detail);
 }
-function renderDiff(comparison) {
+function splitPatch(container,title,content,left,right) {
+  if(!content || !/^@@ /m.test(content)) { patch(container,title,content,true); return; }
+  const detail=node('details');detail.open=true;detail.append(node('summary',title));
+  const table=node('table',undefined,'split-table');const head=node('thead'),heading=node('tr');
+  heading.append(node('th',left),node('th',right));head.append(heading);table.append(head);
+  const body=node('tbody');let removed=[],added=[],inHunk=false;
+  const flush=()=>{for(let i=0;i<Math.max(removed.length,added.length);i++) {
+    const row=node('tr');row.append(node('td',removed[i]||'',removed[i]?'diff-removed':''),node('td',added[i]||'',added[i]?'diff-added':''));body.append(row);
+  }removed=[];added=[];};
+  for(const line of content.split('\n')) {
+    if(line.startsWith('@@') || (inHunk && line.startsWith('\\'))) {
+      flush();inHunk=true;const row=node('tr'),cell=node('td',line,'diff-hunk');cell.colSpan=2;row.append(cell);body.append(row);
+    } else if(inHunk && line.startsWith('-')) removed.push(line);
+    else if(inHunk && line.startsWith('+')) added.push(line);
+    else if(inHunk && line.startsWith(' ')) {flush();const row=node('tr');row.append(node('td',line),node('td',line));body.append(row);}
+  }
+  flush();table.append(body);detail.append(table);container.append(detail);
+}
+function renderDiff(value) {
+  comparison=value;
   $('diffs').replaceChildren();
   if(!comparison) { $('diffs').append(node('p','目前沒有選定的上游來源。','muted')); return; }
   if(!comparison.files.length) $('diffs').append(node('p','沒有檔案內容差異。','muted'));
   if(!comparison.baseline_available) $('diffs').append(node('p','尚無可驗證的歷史基準；目前顯示本機與上游的直接比較。','muted'));
+  if(!comparison.files.length)return;
+  if(!comparison.files.some(f=>f.file===activeFile))activeFile=comparison.files[0].file;
+  const layout=node('div',undefined,'diff-layout'),nav=node('nav',undefined,'file-list'),section=node('section',undefined,'file-body');nav.setAttribute('aria-label','變更檔案');
   for(const file of comparison.files) {
-    const section = node('section'); section.append(node('h3',file.file));
-    for(const [key,title] of [['local_vs_upstream','本機 → 上游'],['base_to_local','基準 → 本機'],['base_to_upstream','基準 → 上游']]) {
-      if(file[key]) patch(section,title,file[key].diff,key === 'local_vs_upstream');
-    }
-    $('diffs').append(section);
+    const button=node('button',file.file);button.setAttribute('aria-pressed',String(file.file===activeFile));
+    button.addEventListener('click',()=>{activeFile=file.file;renderDiff(comparison);Array.from($('diffs').querySelectorAll('.file-list button')).find(b=>b.textContent===activeFile)?.focus({preventScroll:true});});nav.append(button);
   }
+  const file=comparison.files.find(f=>f.file===activeFile);section.append(node('h3',file.file));
+  for(const [key,title,left,right] of [['local_vs_upstream','本機 → 上游','本機內容','上游內容'],['base_to_local','基準 → 本機','基準內容','本機內容'],['base_to_upstream','基準 → 上游','基準內容','上游內容']]) {
+    if(file[key]) {if(diffMode==='split')splitPatch(section,title,file[key].diff,left,right);else patch(section,title,file[key].diff,key==='local_vs_upstream');}
+  }
+  layout.append(nav,section);$('diffs').append(layout);
 }
 async function selectSkill(row) {
-  selected = row; clearPlan(); $('welcome').hidden = true; $('selected').hidden = false;
+  notice('正在讀取 '+row.name+' 的差異…');
+  selected = row; activeFile=null;comparison=null;clearPlan(); $('welcome').hidden = true; $('selected').hidden = false;
+  $('workspace').classList.add('has-selection');$('skill-description').textContent=row.description||row.error||'';
   $('skill-name').textContent = row.name; $('skill-path').textContent = row.path || '';
   $('reason').textContent = reasons[row.status] || row.status; $('revision').textContent = '';
   $('diffs').textContent = '讀取差異中…'; $('hashes').replaceChildren(); renderRows();
@@ -99,10 +144,13 @@ async function selectSkill(row) {
   renderDiff(data.comparison);
   $('revision').textContent = '安裝來源版本：' + (data.receipt?.source_revision?.commit || '未記錄 Git 版本');
   $('hashes').append(node('pre',JSON.stringify({local:data.local_files,upstream:data.upstream_files,receipt:data.receipt},null,2)));
+  notice('已載入 '+row.name+'；檢查差異後再預覽。');
+  $('skill-name').focus({preventScroll:true});
 }
 async function load(preserve=false) {
   const oldName = preserve ? selected?.name : null;
   clearPlan(); selected = null; fresh = false;
+  $('workspace').classList.remove('has-selection','expanded');$('expand-detail').setAttribute('aria-pressed','false');$('expand-detail').textContent='展開詳情';
   if(!inventory) {
     notice('正在連線並載入管理位置…');
     inventory = await api('/api/config');
@@ -148,6 +196,18 @@ async function preview(action) {
   $('preview').scrollIntoView({block:'nearest',behavior:'smooth'}); controls();
 }
 $('query').addEventListener('input',renderRows);
+function closeDetail(restoreFocus=false) {
+  const name=selected?.name;selected=null;comparison=null;activeFile=null;clearPlan();
+  $('selected').hidden=true;$('welcome').hidden=false;$('workspace').classList.remove('has-selection','expanded');
+  $('expand-detail').setAttribute('aria-pressed','false');$('expand-detail').textContent='展開詳情';renderRows();
+  if(restoreFocus)Array.from($('rows').querySelectorAll('button')).find(b=>b.getAttribute('aria-label')==='檢視 '+name)?.focus();
+}
+document.querySelectorAll('#filters button').forEach(button=>button.addEventListener('click',()=>{activeFilter=button.dataset.filter;closeDetail();}));
+$('reset-search').addEventListener('click',()=>{activeFilter='all';$('query').value='';closeDetail();$('query').focus();});
+$('close-detail').addEventListener('click',()=>closeDetail(true));
+$('expand-detail').addEventListener('click',()=>{const expanded=$('workspace').classList.toggle('expanded');$('expand-detail').setAttribute('aria-pressed',String(expanded));$('expand-detail').textContent=expanded?'回到清單':'展開詳情';});
+for(const mode of ['unified','split'])$(mode).addEventListener('click',()=>{diffMode=mode;for(const key of ['unified','split'])$(key).setAttribute('aria-pressed',String(key===mode));renderDiff(comparison);});
+document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();$('query').focus();}if(event.key==='Escape'&&!busy&&selected)closeDetail(true);});
 $('target').addEventListener('change',()=>task(()=>load()));
 $('refresh').addEventListener('click',()=>task(async()=>{notice('');await load();}));
 for(const action of ['adopt','keep','merge']) $(action).addEventListener('click',()=>task(()=>preview(action)));

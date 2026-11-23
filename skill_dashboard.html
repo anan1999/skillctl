@@ -1,57 +1,45 @@
 <!doctype html>
-<html lang="zh-Hant">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="skillctl-token" content="__SESSION_TOKEN__">
-  <title>skillctl · Skills 管理</title>
-  <link rel="stylesheet" href="/dashboard.css">
-  <script src="/dashboard.js" defer></script>
-</head>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="skillctl-token" content="__SESSION_TOKEN__"><title>skillctl · Skills 管理</title><link rel="stylesheet" href="/dashboard.css"><script src="/dashboard.js" defer></script></head>
 <body>
+<aside class="sidebar" aria-label="管理導覽">
+ <a class="brand" href="/"><span class="brand-mark">s/</span>skillctl<span class="local-tag">LOCAL</span></a>
+ <div class="location"><label for="target">管理位置</label><select id="target"></select><p id="target-path" class="path"></p></div>
+ <p class="nav-heading">技能檢視</p>
+ <nav id="filters" aria-label="技能狀態篩選">
+  <button data-filter="all" aria-pressed="true"><span>全部技能</span><span class="filter-count">—</span></button>
+  <button data-filter="unmanaged" aria-pressed="false"><span>未納管</span><span class="filter-count">—</span></button>
+  <button data-filter="modified" aria-pressed="false"><span>本機修改</span><span class="filter-count">—</span></button>
+  <button data-filter="updates" aria-pressed="false"><span>可更新</span><span class="filter-count">—</span></button>
+  <button data-filter="attention" aria-pressed="false"><span>需檢查</span><span class="filter-count">—</span></button>
+  <button data-filter="missing" aria-pressed="false"><span>尚未安裝</span><span class="filter-count">—</span></button>
+ </nav>
+ <div class="source-info"><p class="nav-heading">上游來源</p><span id="source" class="path">連線中…</span><p class="scope-note">只管理指定目錄。系統與插件的其他目錄不自動計入。</p></div>
+ <div class="sidebar-footer"><span class="online-dot"></span> 本機工作區<p>先預覽，再套用</p></div>
+</aside>
 <main>
-  <header><div><p class="eyebrow">SKILLCTL / 本機管理</p><h1>讓每一次更新都有依據。</h1>
-    <p class="muted">掃描現有技能，查看差異，再決定保留或合併本機修改。</p></div>
-    <button id="refresh" type="button">重新掃描</button></header>
-  <div id="notice" role="status" aria-live="polite">正在連線並載入管理位置…</div>
-  <noscript>請啟用 JavaScript 才能載入技能清單。</noscript>
-  <section class="panel controls" aria-label="技能來源與安裝位置">
-    <div><label for="target">管理位置</label><select id="target"></select><p id="target-path" class="path"></p></div>
-    <div><label for="query">搜尋技能或描述</label><input id="query" type="search" placeholder="輸入名稱、中文症狀或狀態" autocomplete="off"></div>
-    <p class="source">上游來源 <span id="source" class="path"></span></p>
+ <header class="topbar"><div><p class="eyebrow">WORKSPACE / SKILLS</p><h1>技能庫</h1></div><button id="refresh">↻ 重新掃描</button></header>
+ <div id="notice" role="status" aria-live="polite">正在連線並載入管理位置…</div><noscript>請啟用 JavaScript 才能載入技能清單。</noscript>
+ <section id="metrics" class="metrics" aria-label="目前位置統計"></section><p id="stats" class="sr-only" aria-live="polite">尚未完成掃描，數量待確認。</p>
+ <div class="toolbar"><div class="search"><label class="sr-only" for="query">搜尋技能或描述</label><span aria-hidden="true">⌕</span><input id="query" type="search" placeholder="搜尋名稱、中文症狀或狀態…" autocomplete="off"><kbd>Ctrl K</kbd></div><span id="count" class="muted">待掃描</span></div>
+ <div id="workspace" class="workspace">
+  <section class="inventory" aria-label="掃描結果">
+   <div class="table-scroll"><table class="skills-table"><thead><tr><th>技能 / 用途</th><th>狀態</th><th><span class="sr-only">操作</span></th></tr></thead><tbody id="rows"></tbody></table></div>
+   <div id="empty" class="empty" hidden><h2>沒有符合的技能</h2><p>試試其他關鍵字，或切回全部技能。</p><button id="reset-search">清除搜尋與篩選</button></div>
+   <p class="list-footer">選取技能以查看差異。已納管表示有收據，不代表 agent 已載入或使用次數。</p>
   </section>
-  <div class="workspace">
-    <section class="panel inventory" aria-label="掃描結果">
-      <div class="section-heading"><h2>Skills 清單</h2><span id="count" class="muted"></span></div>
-      <p id="stats" class="muted small" aria-live="polite">尚未完成掃描，數量待確認。</p>
-      <p class="muted small">僅統計目前管理位置；已納管表示有 skillctl 收據，不代表 agent 已載入或使用次數。</p>
-      <div class="table-scroll"><table><thead><tr><th>技能</th><th>狀態</th><th>操作</th></tr></thead><tbody id="rows"></tbody></table></div>
-      <p id="empty" class="empty" hidden>沒有符合條件的技能。</p>
-    </section>
-    <section class="panel detail" aria-label="技能差異與操作">
-      <div id="welcome" class="empty"><h2>選一個 skill 開始</h2><p>掃描與檢視不會修改技能。<br>接管、保留及合併都必須先預覽，再套用。</p></div>
-      <div id="selected" hidden>
-        <p class="eyebrow">SKILL 詳情</p><h2 id="skill-name"></h2><p id="skill-path" class="path"></p>
-        <p id="reason" class="explanation"></p><p id="revision" class="muted"></p>
-        <div class="actions">
-          <button id="adopt" type="button">預覽接管</button>
-          <button id="keep" type="button">預覽保留本機</button>
-          <button id="merge" type="button">預覽合併更新</button>
-        </div>
-        <p class="muted small">保留會維持全部本機內容，並略過這次上游差異。合併會納入不衝突的上游更新。</p>
-        <section id="preview" class="preview" aria-label="操作預覽" hidden>
-          <p class="eyebrow">步驟 2 / 檢查後套用</p><h3 id="plan-title"></h3>
-          <p id="plan-summary"></p><div id="plan-changes"></div>
-          <p id="plan-expiry" class="muted small"></p>
-          <button id="apply" class="primary" type="button" disabled>套用此預覽</button>
-          <button id="cancel" type="button">取消預覽</button>
-        </section>
-        <h3>文字差異</h3><div id="diffs"></div>
-        <details><summary>逐檔 SHA-256 與安裝收據</summary><div id="hashes"></div></details>
-      </div>
-    </section>
-  </div>
-  <footer>僅管理啟動時指定的本機目錄。檔案載入與模型行為需另行驗證；此頁不會執行 skill 腳本。</footer>
-</main>
-</body>
-</html>
+  <section class="detail" aria-label="技能差異與操作">
+   <div id="welcome" class="empty"><h2>選取一個技能</h2><p>查看來源、差異與可用操作。</p></div>
+   <div id="selected" hidden>
+    <div class="detail-toolbar"><span class="eyebrow">SKILL INSPECTOR</span><div><button id="expand-detail" aria-pressed="false">展開詳情</button><button id="close-detail" aria-label="關閉詳情">×</button></div></div>
+    <h2 id="skill-name" tabindex="-1"></h2><p id="skill-description" class="skill-description"></p><p id="skill-path" class="path"></p>
+    <p id="reason" class="explanation"></p><p id="revision" class="muted small"></p>
+    <div class="actions"><button id="adopt">預覽接管</button><button id="keep">預覽保留本機</button><button id="merge" class="primary">預覽合併更新</button></div>
+    <p class="muted small">保留：維持本機，略過這次上游差異。合併：保留不衝突的本機修改並納入更新。</p>
+    <section id="preview" class="preview" aria-label="操作預覽" hidden><p class="eyebrow">REVIEW / 檢查後套用</p><h3 id="plan-title"></h3><p id="plan-summary"></p><div id="plan-changes"></div><p id="plan-expiry" class="muted small"></p><div class="apply-actions"><button id="apply" class="primary" disabled>套用此預覽</button><button id="cancel">取消預覽</button></div></section>
+    <div class="diff-heading"><h3>檔案差異</h3><div class="segmented" aria-label="差異顯示方式"><button id="unified" aria-pressed="true">統一</button><button id="split" aria-pressed="false">左右</button></div></div><div id="diffs"></div>
+    <details class="receipt"><summary>逐檔 SHA-256 與安裝收據</summary><div id="hashes"></div></details>
+   </div>
+  </section>
+ </div>
+ <footer>skillctl · 本機技能管理<span>掃描與檢視不會修改技能；此頁不會執行 skill 腳本。</span></footer>
+</main></body></html>

@@ -6,6 +6,12 @@ Result: **46 Python tests passed**, including eleven dashboard HTTP tests. The
 reusable Chrome browser test also passed against the final server and public demo.
 Desktop and mobile screenshots were visually inspected.
 
+UI redesign follow-up: the 11 dashboard HTTP tests were rerun with the new assets,
+along with the complete Chrome workflow. Additional checks cover status filters,
+single-line long descriptions, Ctrl+K search, file selection, unified/split diffs,
+expanded inspection, Escape/focus restoration and navigation at 390px. The backend
+and CLI are unchanged from the 46-test run above.
+
 The HTTP integration tests use real temporary source/target/state directories,
 not mocked Manager responses. They verify read-only scan/detail/preview, adoption,
 non-overlapping merge, overlapping conflict refusal, keep-local, rollback of a
