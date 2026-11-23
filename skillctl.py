@@ -15,6 +15,54 @@ import tempfile
 import uuid
 
 
+AGENTS = {
+    'pi': {'project': '.pi/skills', 'user': '.pi/agent/skills', 'invoke': '/skill:'},
+    'codex': {'project': '.agents/skills', 'user': '.agents/skills', 'invoke': '$'},
+    'claude-code': {'project': '.claude/skills', 'user': '.claude/skills', 'invoke': '/'},
+}
+
+
+def resolve_target(args):
+    if args.target is not None:
+        if args.agent or args.scope or args.project:
+            raise ValueError('--target cannot be combined with --agent, --scope or --project')
+        return args.target
+    if not args.agent:
+        if args.scope or args.project:
+            raise ValueError('--scope and --project require --agent')
+        return Path.home() / '.codex/skills'
+    scope = args.scope or 'project'
+    if scope == 'user':
+        if args.project:
+            raise ValueError('--project only applies to project scope')
+        base = Path.home()
+    else:
+        base = (args.project or Path.cwd()).expanduser().resolve()
+        if not base.is_dir():
+            raise ValueError('Project directory does not exist: ' + str(base))
+    return base / AGENTS[args.agent][scope]
+
+
+def comparison_roots(agent, project):
+    """Bound duplicate checks to standard user/project locations."""
+    if not agent:
+        return []
+    home = Path.home()
+    roots = [home / AGENTS[agent]['user']]
+    if agent == 'pi':
+        roots.append(home / '.agents/skills')
+    if agent == 'codex':
+        roots.append(home / '.codex/skills')  # legacy installations
+    folder = project.expanduser().resolve()
+    for base in (folder, *folder.parents):
+        roots.append(base / AGENTS[agent]['project'])
+        if agent == 'pi':
+            roots.append(base / '.agents/skills')
+        if (base / '.git').exists():
+            break
+    return roots
+
+
 def read_json(path):
     return json.loads(path.read_text(encoding='utf-8-sig'))
 
@@ -27,6 +75,8 @@ def write_json(path, value):
 
 
 def fingerprint(path):
+    if path.is_symlink():
+        raise ValueError('Symlink in skill: ' + str(path))
     if not path.exists():
         return None
     if path.is_symlink() or not path.is_dir():
@@ -170,21 +220,71 @@ class Manager:
                     raise ValueError('Broken local link: ' + str(doc) + ' -> ' + link)
         return files
 
+    def inspect(self, name, db):
+        source = self.validate(name)
+        current = fingerprint(self.target / name)
+        receipt = db['installed'].get(name)
+        status = ('missing' if current is None and receipt is None else
+                  'unmanaged-identical' if receipt is None and current == source else
+                  'unmanaged-conflict' if receipt is None else
+                  'local-drift' if current != receipt['files'] else
+                  'current' if current == source else 'update-available')
+        return {'name': name, 'status': status,
+                'installed_commit': receipt.get('source_revision', {}).get('commit') if receipt else None,
+                'rollback_depth': len(db['history'].get(name, []))}
+
     def listing(self):
-        db = self.db(); rows = []
+        db = self.db()
+        return [self.inspect(name, db) for name in self.names]
+
+    def doctor(self, roots):
+        advice = {
+            'current': 'Installed bytes match the source and receipt.',
+            'missing': 'Install this skill into the selected target.',
+            'update-available': 'Review diff, then install to apply the source update.',
+            'local-drift': 'Preserve local edits and reconcile them with the source before installing.',
+            'unmanaged-identical': 'Use install --adopt-identical to enroll this existing copy.',
+            'unmanaged-conflict': 'Preserve this copy and reconcile it with the source before adopting.',
+        }
+        db = self.db()
+        rows = []
         for name in self.names:
-            source = self.validate(name)
-            current = fingerprint(self.target / name)
-            receipt = db['installed'].get(name)
-            status = ('missing' if current is None else
-                      'unmanaged-identical' if receipt is None and current == source else
-                      'unmanaged-conflict' if receipt is None else
-                      'local-drift' if current != receipt['files'] else
-                      'current' if current == source else 'update-available')
-            rows.append({'name': name, 'status': status,
-                         'installed_commit': receipt.get('source_revision', {}).get('commit') if receipt else None,
-                         'rollback_depth': len(db['history'].get(name, []))})
-        return rows
+            try:
+                row = self.inspect(name, db)
+                row['advice'] = advice[row['status']]
+            except (ValueError, OSError, KeyError) as error:
+                row = {'name': name, 'status': 'invalid', 'error': str(error),
+                       'advice': 'Fix the reported source or target file, then rerun doctor.'}
+            copies = []
+            seen = set()
+            for root in [self.target, *roots]:
+                path = root / name
+                identity = os.path.normcase(str(path.resolve()))
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                if not path.exists() and not path.is_symlink():
+                    continue
+                try:
+                    copies.append({'path': str(path), 'files': fingerprint(path)})
+                except (ValueError, OSError) as error:
+                    copies.append({'path': str(path), 'error': str(error)})
+            row['copies'] = copies
+            if len(copies) > 1:
+                row['duplicate_content_equal'] = all('files' in copy for copy in copies) and all(
+                    copy['files'] == copies[0]['files'] for copy in copies[1:])
+                row['duplicate_advice'] = 'Review these same-folder-name copies for shadowing; agent settings determine which loads.'
+            rows.append(row)
+        lock_exists = (self.state / 'operation.lock').exists()
+        return {
+            'ok': all(row['status'] in ('current', 'update-available') for row in rows)
+                  and all('error' not in copy for row in rows for copy in row['copies'])
+                  and not lock_exists,
+            'operation_lock': str(self.state / 'operation.lock') if lock_exists else None,
+            'lock_advice': 'Check for an active operation before handling a stale lock.' if lock_exists else None,
+            'skills': rows,
+            'scope': 'Catalog skills in standard locations only. Custom paths, plugins, runtime loading and tool dependencies are not verified.',
+        }
 
     def diff(self, name):
         source = self.validate(name); current = fingerprint(self.target / name) or {}
@@ -257,21 +357,38 @@ class Manager:
 
 
 def main():
-    p = argparse.ArgumentParser(description=__doc__)
+    # Accept target selection before or after the subcommand.
+    selection = argparse.ArgumentParser(add_help=False, argument_default=argparse.SUPPRESS)
+    selection.add_argument('--target', type=Path)
+    selection.add_argument('--agent', choices=AGENTS)
+    selection.add_argument('--scope', choices=('project', 'user'))
+    selection.add_argument('--project', type=Path, help='Project directory (default: current directory)')
+    p = argparse.ArgumentParser(description=__doc__, parents=[selection])
     p.add_argument('--source', type=Path, default=Path(__file__).resolve().parent)
-    p.add_argument('--target', type=Path, default=Path.home()/'.codex/skills')
     p.add_argument('--state', type=Path, default=Path.home()/'.codex/skill-manager-state')
     sub = p.add_subparsers(dest='command', required=True)
-    sub.add_parser('list')
-    check = sub.add_parser('check'); check.add_argument('--also-target', action='append', type=Path, default=[])
-    diff = sub.add_parser('diff'); diff.add_argument('names', nargs='*')
-    install = sub.add_parser('install'); install.add_argument('names', nargs='*')
+    sub.add_parser('list', parents=[selection])
+    sub.add_parser('doctor', parents=[selection])
+    check = sub.add_parser('check', parents=[selection]); check.add_argument('--also-target', action='append', type=Path, default=[])
+    diff = sub.add_parser('diff', parents=[selection]); diff.add_argument('names', nargs='*')
+    install = sub.add_parser('install', parents=[selection]); install.add_argument('names', nargs='*')
     install.add_argument('--all', action='store_true'); install.add_argument('--adopt-identical', action='store_true')
-    roll = sub.add_parser('rollback'); roll.add_argument('name')
+    install.add_argument('--dry-run', action='store_true', help='Preview target and changes without writing')
+    roll = sub.add_parser('rollback', parents=[selection]); roll.add_argument('name')
     args = p.parse_args()
+    for option in ('target', 'agent', 'scope', 'project'):
+        if not hasattr(args, option):
+            setattr(args, option, None)
     try:
-        m = Manager(args.source, args.target, args.state)
+        m = Manager(args.source, resolve_target(args), args.state)
         if args.command == 'list': result = m.listing()
+        elif args.command == 'doctor':
+            roots = comparison_roots(args.agent, args.project or Path.cwd())
+            result = m.doctor(roots)
+            result.update({'target': str(m.target), 'agent': args.agent,
+                           'scope_name': (args.scope or 'project') if args.agent else 'custom'})
+            if args.agent:
+                result['invoke'] = AGENTS[args.agent]['invoke'] + '<skill-name>'
         elif args.command == 'diff': result = [m.diff(n) for n in (args.names or m.names)]
         elif args.command == 'check':
             rows = m.listing(); duplicates = []
@@ -287,10 +404,28 @@ def main():
             if bool(args.names) == args.all: p.error('Choose skill names OR --all')
             names = m.names if args.all else args.names
             for name in names: m.validate(name)
-            result = [m.install(name, args.adopt_identical) for name in names]
+            if args.dry_run:
+                db = m.db()
+                plan = []
+                lock_exists = (m.state / 'operation.lock').exists()
+                for name in names:
+                    row = m.inspect(name, db)
+                    row['blocked'] = lock_exists or row['status'] in ('local-drift', 'unmanaged-conflict') or (
+                        row['status'] == 'unmanaged-identical' and not args.adopt_identical)
+                    row['diff'] = m.diff(name)
+                    plan.append(row)
+                result = {'ok': not any(row['blocked'] for row in plan),
+                          'target': str(m.target), 'dry_run': True, 'skills': plan,
+                          'operation_lock': str(m.state / 'operation.lock') if lock_exists else None}
+            else:
+                result = [m.install(name, args.adopt_identical) for name in names]
+            if args.agent and not args.dry_run:
+                result = {'target': str(m.target), 'agent': args.agent,
+                          'scope': args.scope or 'project', 'skills': result,
+                          'invoke': [AGENTS[args.agent]['invoke'] + name for name in names]}
         else: result = m.rollback(args.name)
         print(json.dumps(result,ensure_ascii=False,indent=2))
-        return 1 if args.command == 'check' and not result['ok'] else 0
+        return 1 if isinstance(result, dict) and result.get('ok') is False else 0
     except (ValueError, OSError, KeyError, json.JSONDecodeError) as error:
         print(json.dumps({'error':str(error)},ensure_ascii=False), file=sys.stderr)
         return 2

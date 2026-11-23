@@ -29,6 +29,69 @@ python skillctl.py --target .demo/skills --state .demo/state rollback example-sk
 
 On Windows, use `python -X utf8` if your console uses a legacy encoding.
 
+## Choose an agent
+
+Select a harness with `--agent`. Project scope defaults to the current working
+directory; `--project` selects an existing project explicitly.
+
+| Agent | Project target | User target | Invoke in the agent |
+| --- | --- | --- | --- |
+| `pi` | `.pi/skills` | `~/.pi/agent/skills` | `/skill:example-skill` |
+| `codex` | `.agents/skills` | `~/.agents/skills` | `$example-skill` |
+| `claude-code` | `.claude/skills` | `~/.claude/skills` | `/example-skill` |
+
+```sh
+python skillctl.py install example-skill --agent pi --scope project --dry-run
+python skillctl.py install example-skill --agent pi --scope project
+python skillctl.py doctor --agent pi --scope project
+python skillctl.py install example-skill --agent codex --scope user
+python skillctl.py install example-skill --agent claude-code --project /path/to/project
+```
+
+The install response contains the resolved target and invocation examples.
+Open a fresh session in the selected project to discover installed skills.
+In Pi, `/reload` also refreshes skills in an existing session.
+Target options work before or after the subcommand. Keep `--source` and
+`--state` before the subcommand.
+
+Existing `--target` commands and their JSON output retain their behavior.
+Using neither `--target` nor `--agent` keeps the original
+`~/.codex/skills` default. Explicit `--agent codex` follows the current
+documented `.agents/skills` locations. Combine `--agent` with `--scope`
+or `--project`; use `--target` on its own for custom destinations.
+All targets share the same receipt, drift protection and rollback implementation.
+
+Paths and invocation syntax are based on the
+[Pi documentation](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/skills.md),
+[Codex documentation](https://learn.chatgpt.com/docs/build-skills), and
+[Claude Code documentation](https://code.claude.com/docs/en/skills).
+
+## Diagnose an installation
+
+`doctor` reads catalog skills and reports the selected target, installation
+status, actionable advice, operation locks, and same-folder-name copies.
+It checks standard user locations and project ancestors through the nearest
+Git root. Pi also checks shared `.agents/skills`; Codex also checks legacy
+`~/.codex/skills`. Each copy includes its per-file hashes; duplicates include
+`duplicate_content_equal` and a reminder to review possible shadowing.
+Identical resolved locations are inspected once.
+
+Missing skills, drift, unmanaged copies, invalid source files or unreadable
+copies produce exit code 1. A source update available is informational.
+Duplicate copies are advisory because the agent's settings control precedence.
+Global setup errors, such as invalid arguments or an unreadable registry,
+produce exit code 2. A healthy report returns 0.
+
+`install --dry-run` previews the resolved target, status, file diff and
+blocking conflicts without creating directories, receipts or backups. It
+returns 1 if a conflict or operation lock blocks installation.
+
+The diagnostic covers catalog skills in standard locations. Runtime loading,
+custom discovery settings, plugins, executable dependencies and model behavior
+require separate verification. The CLI integration tests exercise all six
+agent/scope combinations in isolated directories, including drift rejection and
+rollback. They do not start the agent applications.
+
 ## Architecture
 
 ```mermaid
