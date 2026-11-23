@@ -437,8 +437,26 @@ class Manager:
         if name not in self.names:
             self.names.append(name)
 
-    def adopt(self, name, apply=False):
+    def preview_stamp(self, name):
+        """Bind an interactive preview to contents and receipts, not just a filename."""
+        if not valid_name(name):
+            raise ValueError('Invalid skill name')
+        db = self.db()
+        prior = db['installed'].get(name)
+        base = self.baseline(name, prior, required=False) if prior else None
+        payload = {'source': str(self.source), 'target': str(self.target), 'registry': db,
+                   'local': fingerprint(self.target / name),
+                   'upstream': self.validate(name) if name in self.sources else None,
+                   'base': {key: hashlib.sha256(value).hexdigest() for key, value in (base or {}).items()}}
+        return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+
+    def verify_preview(self, name, expected):
+        if expected is not None and self.preview_stamp(name) != expected:
+            raise ValueError('Preview is stale; files or receipts changed. Preview again before applying.')
+
+    def adopt(self, name, apply=False, expected=None):
         def operation():
+            self.verify_preview(name, expected)
             destination = self.target / name
             files = self.validate_folder(destination, name)
             prior = self.db()['installed'].get(name)
@@ -452,6 +470,7 @@ class Manager:
                       'baseline_note': 'Selected upstream becomes the comparison baseline at adoption; earlier history is unknown.',
                       'target_unchanged': True}
             if apply:
+                self.verify_preview(name, expected)
                 self.record(name, destination, upstream, replace=False)
             return result
         if not apply:
@@ -459,8 +478,9 @@ class Manager:
         with self.lock():
             return operation()
 
-    def reconcile(self, name, strategy, apply=False, resolved=None):
+    def reconcile(self, name, strategy, apply=False, resolved=None, expected=None):
         def operation():
+            self.verify_preview(name, expected)
             self.validate(name)
             destination = self.target / name
             self.validate_folder(destination, name)
@@ -505,6 +525,7 @@ class Manager:
                     return result
                 if local != self.contents(destination) or upstream != self.contents(self.sources[name]):
                     raise ValueError('Files changed during reconciliation; rerun preview')
+                self.verify_preview(name, expected)
                 self.record(name, prepared, self.sources[name], replace=(strategy != 'keep'))
             result['action'] = 'kept' if strategy == 'keep' else 'merged'
             return result

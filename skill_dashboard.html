@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="skillctl-token" content="__SESSION_TOKEN__">
+  <title>skillctl · Skills 管理</title>
+  <link rel="stylesheet" href="/dashboard.css">
+  <script src="/dashboard.js" defer></script>
+</head>
+<body>
+<main>
+  <header><div><p class="eyebrow">SKILLCTL / 本機管理</p><h1>讓每一次更新都有依據。</h1>
+    <p class="muted">掃描現有技能，查看差異，再決定保留或合併本機修改。</p></div>
+    <button id="refresh" type="button">重新掃描</button></header>
+  <div id="notice" role="status" aria-live="polite"></div>
+  <section class="panel controls" aria-label="技能來源與安裝位置">
+    <div><label for="target">管理位置</label><select id="target"></select><p id="target-path" class="path"></p></div>
+    <div><label for="query">搜尋技能或描述</label><input id="query" type="search" placeholder="輸入名稱、中文症狀或狀態" autocomplete="off"></div>
+    <p class="source">上游來源 <span id="source" class="path"></span></p>
+  </section>
+  <div class="workspace">
+    <section class="panel inventory" aria-label="掃描結果">
+      <div class="section-heading"><h2>現有 Skills</h2><span id="count" class="muted"></span></div>
+      <div class="table-scroll"><table><thead><tr><th>技能</th><th>狀態</th><th>操作</th></tr></thead><tbody id="rows"></tbody></table></div>
+      <p id="empty" class="empty" hidden>沒有符合條件的技能。</p>
+    </section>
+    <section class="panel detail" aria-label="技能差異與操作">
+      <div id="welcome" class="empty"><h2>選一個 skill 開始</h2><p>掃描與檢視不會修改技能。<br>接管、保留及合併都必須先預覽，再套用。</p></div>
+      <div id="selected" hidden>
+        <p class="eyebrow">SKILL 詳情</p><h2 id="skill-name"></h2><p id="skill-path" class="path"></p>
+        <p id="reason" class="explanation"></p><p id="revision" class="muted"></p>
+        <div class="actions">
+          <button id="adopt" type="button">預覽接管</button>
+          <button id="keep" type="button">預覽保留本機</button>
+          <button id="merge" type="button">預覽合併更新</button>
+        </div>
+        <p class="muted small">保留會維持全部本機內容，並略過這次上游差異。合併會納入不衝突的上游更新。</p>
+        <section id="preview" class="preview" aria-label="操作預覽" hidden>
+          <p class="eyebrow">步驟 2 / 檢查後套用</p><h3 id="plan-title"></h3>
+          <p id="plan-summary"></p><div id="plan-changes"></div>
+          <p id="plan-expiry" class="muted small"></p>
+          <button id="apply" class="primary" type="button" disabled>套用此預覽</button>
+          <button id="cancel" type="button">取消預覽</button>
+        </section>
+        <h3>文字差異</h3><div id="diffs"></div>
+        <details><summary>逐檔 SHA-256 與安裝收據</summary><div id="hashes"></div></details>
+      </div>
+    </section>
+  </div>
+  <footer>僅管理啟動時指定的本機目錄。檔案載入與模型行為需另行驗證；此頁不會執行 skill 腳本。</footer>
+</main>
+</body>
+</html>

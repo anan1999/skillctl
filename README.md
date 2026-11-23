@@ -8,6 +8,44 @@ Orca Pi Chat), Codex, Claude Code and Cursor target directories.
 
 [繁體中文操作指南](docs/quickstart.zh-TW.md)
 
+## Local management page
+
+Try the complete browser workflow with disposable skills:
+
+```sh
+python dashboard_demo.py --open
+```
+
+Choose `adopt-demo` to preview and adopt an existing copy, `merge-demo` to combine
+non-overlapping edits, or `conflict-demo` to inspect a blocked merge and choose
+keep-local instead. All demo files live in a temporary directory; stop the demo
+with Ctrl+C to clean them up.
+
+Manage real project skills with the same receipt/state directory as the CLI:
+
+```sh
+python skill_dashboard.py --source /path/to/upstream --project /path/to/project --agent pi --agent codex --open
+# Or configure specific existing installation directories:
+python skill_dashboard.py --source /path/to/upstream --target "Local=/path/to/skills" --open
+```
+
+The page scans configured targets, searches skill names/descriptions (including
+Chinese text), displays per-file SHA-256 and base/local/upstream text patches,
+and provides **Preview adoption**, **Preview keep-local** and **Preview merge**.
+Only a successful preview enables **Apply this preview**. Each preview is valid
+for 10 minutes and one use; apply rechecks local/upstream files, receipts and the
+baseline while holding the CLI operation lock. Changes since preview require a
+new preview. Conflicts never write markers into the active skill.
+
+No additional Python packages are needed. The server binds only to a random
+`127.0.0.1` port (or `--port`), accepts its own origin and session token, and exposes
+only the targets chosen at startup. It does not run skill scripts, fetch remote
+machines, or publish files to GitHub. This is a local management app, not a hosted
+multi-user service. Keep the server terminal running while using the page.
+
+See [管理頁面指南](docs/dashboard.zh-TW.md) and
+[dashboard verification](docs/dashboard-verification.md).
+
 ## Manage the skills you already have
 
 `scan` is read-only. It discovers skill directories even when they are not in a

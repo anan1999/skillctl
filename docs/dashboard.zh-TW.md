@@ -1,0 +1,62 @@
+# 管理頁面：先預覽，再套用
+
+## 先用 demo 試一次
+
+```powershell
+python -X utf8 dashboard_demo.py --open
+```
+
+1. 在 `Pi demo` 選擇 `adopt-demo` →「檢視」→「預覽接管」。檢查本機與上游差異後，按「套用此預覽」。原檔內容不變，只開始納管。
+2. 選擇 `merge-demo` →「預覽合併更新」。預覽會顯示將套用的文字 patch；套用後，`LOCAL` 修改保留，`UPSTREAM` 更新也加入。
+3. 選擇 `conflict-demo` →「預覽合併更新」。兩邊修改同一段，頁面會顯示衝突，停用套用按鈕。可改選「預覽保留本機」，檢查後套用。
+4. 試試搜尋「相機時間」，或切換到 `Codex demo` 看尚未安裝的狀態。
+
+demo 全部使用臨時目錄，不會納管你的個人技能。結束時在終端機按 Ctrl+C。
+
+## 開啟自己的技能
+
+在 skillctl checkout 目錄執行：
+
+```powershell
+python -X utf8 skill_dashboard.py --source C:/work/my-skills --project C:/work/my-project --agent pi --agent codex --open
+```
+
+- `--source`：上游技能目錄，可以有 catalog，也可以是一般技能集合。
+- `--project`：專案目錄。Pi 對應 `.pi/skills`，Codex 對應 `.agents/skills`。
+- `--agent`：可以重複指定；未指定時列出四個支援的 project targets。
+- `--state`：若原本 CLI 使用自訂收據目錄，這裡必須選同一個。
+
+管理使用者層級或其他既有目錄時，可指定一個或多個具名位置：
+
+```powershell
+python -X utf8 skill_dashboard.py --source C:/work/my-skills --target "Codex=C:/Users/me/.agents/skills" --target "Pi=C:/Users/me/.pi/agent/skills" --open
+```
+
+路徑含空白時，請將整個 `名稱=路徑` 參數放進引號。`--target` 與 `--agent` 擇一使用。
+頁面只能管理啟動時指定的本機位置。既有 Windows／Ping 靜態快照仍是另一個唯讀工作流程；
+此頁不會遠端修改 Ping，也不會把個人路徑或技能上傳 GitHub。
+
+## 操作的差異
+
+| 操作 | 預覽內容 | 套用結果 |
+| --- | --- | --- |
+| 接管 | 既有副本與上游的差異 | 保留原檔，新增收據、備份及可用的比較基準 |
+| 保留本機 | 本機與上游差異、將略過這次更新的說明 | 全部本機內容不變，建立新的比較基準 |
+| 合併更新 | 合併結果相對本機的 patch，或衝突內容 | 僅無衝突且通過結構檢查時才套用，並保留 rollback 備份 |
+
+接管不同內容時，上游只代表「接管當下」的比較基準，不代表已找回較早的歷史。
+舊版收據可能只有雜湊而沒有原始內容；無法確認共同基準時，合併預覽會說明原因。
+可以先檢查差異，選擇保留本機建立基準，或用 CLI 的 `--resolved` 提供完整手動解決結果。
+
+每份預覽限用一次，10 分鐘後失效。預覽後若檔案、上游或收據有變，套用會被擋下，
+請重新掃描／預覽。切換技能、位置或取消預覽都會清除目前的套用選擇。
+
+回復操作仍使用原本的 `skillctl.py rollback`，帶上相同 source、target/agent、project
+與 state 參數。若又有新的本機修改，rollback 仍會先阻擋，避免覆蓋。
+
+## 頁面的範圍
+
+搜尋以名稱、description 與狀態文字比對；不會呼叫模型做語意搜尋。
+巢狀技能與連結目錄會列出，但不直接改寫；需要時以 `--target` 指向正確的實體目錄。
+目前頁面提供掃描、接管、差異、保留及合併；首次安裝、手動衝突處理與 rollback 使用 CLI。
+管理頁面僅在本機 loopback 提供服務，關閉終端機後頁面便無法繼續操作。
