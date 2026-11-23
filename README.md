@@ -2,7 +2,105 @@
 
 Track and deploy Git-backed Agent Skills with per-file SHA-256 receipts, local edit detection, and rollback. The CLI uses Python 3.9+ and Git.
 
+**New:** scan existing skills, adopt them without rewriting files, inspect text
+patches, and keep or three-way merge local customizations. Supports Pi (including
+Orca Pi Chat), Codex, Claude Code and Cursor target directories.
+
+[繁體中文操作指南](docs/quickstart.zh-TW.md)
+
+## Manage the skills you already have
+
+`scan` is read-only. It discovers skill directories even when they are not in a
+catalog, reports invalid skills and same-name copies, and never executes skill
+scripts. `--all-agents` scans the standard user/project locations and ancestors
+through the closest Git root. Use a single `--target` for a bounded custom scan.
+
+```sh
+python skillctl.py scan --all-agents --project /path/to/project
+python skillctl.py scan --agent pi --project /path/to/project
+python skillctl.py --target /path/to/existing/skills scan
+```
+
+Adoption previews by default; `--apply` records a receipt, a backup, and (when
+available) the selected upstream baseline. It leaves installed bytes unchanged.
+Use the same `--state` directory for later commands if you specify a custom one.
+
+```sh
+python skillctl.py --source /path/to/upstream --target /path/to/existing/skills adopt my-skill
+python skillctl.py --source /path/to/upstream --target /path/to/existing/skills adopt my-skill --apply
+```
+
+An upstream can be a local Git checkout, a bundle of skill folders, or one skill
+folder; `catalog.json` is optional. If present, the catalog remains authoritative.
+Without it, discovery recursively finds `SKILL.md` and rejects duplicate names.
+GitHub sources should first be cloned locally; this release does not fetch URLs.
+To adopt without an upstream, select an empty source directory. Such skills are
+`local-only`, with no invented Git provenance. Later select an upstream, inspect
+the diff, and use `reconcile --strategy keep --apply` to establish its baseline.
+
+Nested skills are reported; select their immediate containing directory using
+`--target` to adopt them in place. Symlinks and Windows junctions are not followed
+by discovery or overwritten. Select the real directory explicitly if appropriate.
+Folder names must match `name` in `SKILL.md`. Frontmatter validation is a basic
+name/description contract check, not a complete YAML or behavior validator.
+
+## Understand and resolve a blocked update
+
+```sh
+python skillctl.py --source /path/to/upstream diff my-skill --agent pi --text
+python skillctl.py --source /path/to/upstream install my-skill --agent pi --dry-run
+python skillctl.py --source /path/to/upstream reconcile my-skill --agent pi --strategy merge --text
+# After reviewing the preview:
+python skillctl.py --source /path/to/upstream reconcile my-skill --agent pi --strategy merge --apply
+```
+
+`diff --text` shows the blocking reason and unified patches between base, local
+and upstream. `diff --json` includes the same patches in machine-readable JSON.
+`reconcile` also previews by default; `--text` makes its proposed changes and
+conflicts readable. Add `--project` when operating outside the project directory.
+
+| Choice | Behavior |
+| --- | --- |
+| `--strategy keep` | Preserve every local byte and acknowledge the selected upstream as the new comparison baseline. Current upstream changes are intentionally declined. |
+| `--strategy merge` | Merge local and upstream edits relative to the stored baseline. Apply only when the entire result is conflict-free and validates. |
+| `--strategy merge --resolved /path/to/reviewed-skill` | Preview/apply a complete, manually reviewed skill folder. Reject leftover conflict markers. This explicitly replaces the target with that reviewed result. |
+
+For a manual resolution, copy the local skill to a separate directory, edit it
+using the displayed base/local/upstream patches, then pass that complete directory
+with `--resolved`. Preview again before adding `--apply`.
+
+Text conflicts, conflicting additions, delete/modify conflicts, and conflicting
+binary changes block the whole merge. UTF-8 text up to 1 MiB uses `git merge-file`;
+binary/non-UTF-8/large files merge only when one side is unchanged or both agree.
+CRLF and LF count as different bytes; line-ending-only edits may conflict.
+No skill scripts are run. Apply recomputes the result under an operation lock.
+
+Adopting a differing copy establishes a baseline **at adoption**, not a claim
+about its earlier history. Older receipts may have hashes without historical
+contents: automatic merge then requires a verifiable baseline, or an explicit
+keep/manual-resolution decision. Preserved edits are shown as `customized` and
+continue to block ordinary `install`, even after being acknowledged. Further
+unreviewed edits become `local-drift` again.
+
+Every applied adoption/keep/merge can be rolled back using the existing rollback
+command, provided no additional local edits would be overwritten. Keep retains
+the old baseline in rollback history. Adoption rollback leaves the original copy
+in place and removes its management receipt.
+
+All commands emit JSON unless a text preview is requested. Conflict previews
+return 1; invalid arguments/files return 2. A multi-skill adoption preflights all
+names, then commits one skill at a time; it is not a cross-skill transaction.
+
 ## Try it
+
+Run the new reconciliation walkthrough (all files are temporary):
+
+```sh
+python reconcile_demo.py
+```
+
+It verifies adoption, an explained update block, a successful three-way merge,
+an overlapping-edit conflict, keep-local, and rollback.
 
 Run the 60-second demo with Python and open the HTML report:
 
@@ -39,6 +137,7 @@ directory; `--project` selects an existing project explicitly.
 | `pi` | `.pi/skills` | `~/.pi/agent/skills` | `/skill:example-skill` |
 | `codex` | `.agents/skills` | `~/.agents/skills` | `$example-skill` |
 | `claude-code` | `.claude/skills` | `~/.claude/skills` | `/example-skill` |
+| `cursor` | `.cursor/skills` | `~/.cursor/skills` | `/example-skill` |
 
 ```sh
 python skillctl.py install example-skill --agent pi --scope project --dry-run
@@ -64,11 +163,12 @@ All targets share the same receipt, drift protection and rollback implementation
 Paths and invocation syntax are based on the
 [Pi documentation](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/skills.md),
 [Codex documentation](https://learn.chatgpt.com/docs/build-skills), and
-[Claude Code documentation](https://code.claude.com/docs/en/skills).
+[Claude Code documentation](https://code.claude.com/docs/en/skills), and
+[Cursor documentation](https://cursor.com/docs/skills).
 
 ## Diagnose an installation
 
-`doctor` reads catalog skills and reports the selected target, installation
+`doctor` reads source and adopted skills and reports the selected target, installation
 status, actionable advice, operation locks, and same-folder-name copies.
 It checks standard user locations and project ancestors through the nearest
 Git root. Pi also checks shared `.agents/skills`; Codex also checks legacy
@@ -86,11 +186,16 @@ produce exit code 2. A healthy report returns 0.
 blocking conflicts without creating directories, receipts or backups. It
 returns 1 if a conflict or operation lock blocks installation.
 
-The diagnostic covers catalog skills in standard locations. Runtime loading,
+The diagnostic covers source and adopted skills in standard locations. Runtime loading,
 custom discovery settings, plugins, executable dependencies and model behavior
-require separate verification. The CLI integration tests exercise all six
+require separate verification. The CLI integration tests exercise all eight
 agent/scope combinations in isolated directories, including drift rejection and
-rollback. They do not start the agent applications.
+rollback, adoption and reconciliation. They do not start the agent applications.
+See [Windows verification](docs/windows-verification.md) for separate live-agent
+results and [design references](docs/design-references.md) for the tools reviewed.
+
+On Windows with long-path support disabled, use short checkout and state paths
+(for example `C:/work/skillctl` and `C:/skill-state`) to leave room for snapshots.
 
 ## Architecture
 
