@@ -1,16 +1,22 @@
 # Dashboard verification
 
-Date: 2026-11-23. Native Windows, Python 3.11.2 and local Google Chrome.
+Date: 2026-11-24. Native Windows, Python 3.11.2 and local Google Chrome.
 
-Result: **46 Python tests passed**, including eleven dashboard HTTP tests. The
-reusable Chrome browser test also passed against the final server and public demo.
+Result: **53 Python tests passed**, including eighteen dashboard HTTP tests. Both
+Chrome browser workflows passed against isolated demo source/target/state directories.
 Desktop and mobile screenshots were visually inspected.
 
-UI redesign follow-up: the 11 dashboard HTTP tests were rerun with the new assets,
-along with the complete Chrome workflow. Additional checks cover status filters,
+The UI checks cover status filters,
 single-line long descriptions, Ctrl+K search, file selection, unified/split diffs,
-expanded inspection, Escape/focus restoration and navigation at 390px. The backend
-and CLI are unchanged from the 46-test run above.
+expanded inspection, Escape/focus restoration and navigation at 390px.
+
+The management workflow additionally verifies cross-target installation into Pi
+and Codex directories, cancel and destination-change invalidation, clipboard text,
+refresh after installation, update and rollback of previous contents, explicit
+first-install removal, invalid SKILL.md diagnostics and matching/different copies.
+HTTP tests verify read-only install/rollback previews, stale source/local/receipt
+protection, operation locks, modified backup refusal, and rollback with broken upstream.
+Invocation prompts and static file checks do not establish that an agent loaded a skill.
 
 The HTTP integration tests use real temporary source/target/state directories,
 not mocked Manager responses. They verify read-only scan/detail/preview, adoption,
@@ -59,6 +65,14 @@ In another terminal in the checkout:
 npm install --prefix .demo/browser-tools playwright
 $env:SKILLCTL_PLAYWRIGHT = (Resolve-Path .demo/browser-tools/node_modules/playwright).Path
 node tests/dashboard_browser.cjs .demo/browser-fixture.json
+```
+
+Start a separate fresh demo with a new info filename for the management workflow:
+
+```powershell
+python -X utf8 dashboard_demo.py --info .demo/management-fixture.json
+# In another terminal with the same SKILLCTL_PLAYWRIGHT setting:
+node tests/dashboard_management_browser.cjs .demo/management-fixture.json
 ```
 
 The script records screenshots under ignored `.demo/dashboard-ui/`. Stop the demo

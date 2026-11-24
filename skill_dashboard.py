@@ -17,6 +17,16 @@ from skillctl_content import valid_name
 ROOT = Path(__file__).resolve().parent
 
 
+def target_agent(path):
+    normalized = str(path).replace('\\', '/').rstrip('/').lower()
+    for agent, endings in [('pi', ('.pi/skills', '.pi/agent/skills')),
+                           ('codex', ('.agents/skills', '.codex/skills')),
+                           ('claude-code', ('.claude/skills',)), ('cursor', ('.cursor/skills',))]:
+        if any(normalized.endswith('/' + ending) for ending in endings):
+            return agent
+    return None
+
+
 class Dashboard:
     def __init__(self, source, targets, state):
         self.source = Path(source).resolve()
@@ -37,7 +47,7 @@ class Dashboard:
     def configuration(self):
         # No filesystem scan: refresh can show the configured scope immediately.
         return {'source': str(self.source), 'targets': [
-            {'id': target_id, **config} for target_id, config in self.targets.items()]}
+            {'id': target_id, **config, 'agent': target_agent(config['path'])} for target_id, config in self.targets.items()]}
 
     def inventory(self, target=None):
         if target is not None and target not in self.targets:
@@ -56,25 +66,27 @@ class Dashboard:
                         try:
                             rows.append({**m.inspect(name, db), 'path': str(m.target / name), 'adoptable': False})
                         except (ValueError, OSError) as error:
-                            rows.append({'name': name, 'status': 'invalid', 'error': str(error), 'adoptable': False})
+                            rows.append({'name': name, 'path': str(m.target / name), 'status': 'invalid', 'error': str(error), 'adoptable': False})
                 for row in rows:
                     folder = Path(row.get('path', ''))
                     row['description'] = ''
-                    if row['status'] not in ('invalid', 'linked') and (folder / 'SKILL.md').is_file():
+                    description_folder = folder if (folder / 'SKILL.md').is_file() else m.sources.get(row['name'], folder)
+                    if row['status'] not in ('invalid', 'linked') and (description_folder / 'SKILL.md').is_file():
                         # Small description excerpt for local search, never rendered as HTML.
                         import re
-                        text = (folder / 'SKILL.md').read_text(encoding='utf-8-sig')
+                        text = (description_folder / 'SKILL.md').read_text(encoding='utf-8-sig')
                         match = re.search(r'^description:\s*(.+)$', text, re.M)
                         row['description'] = match[1] if match else ''
                     row['present'] = row['status'] != 'linked' and (folder / 'SKILL.md').is_file()
                     row['managed'] = row['name'] in db['installed'] and folder.parent == m.target
                     row['has_source'] = row['name'] in m.sources
+                    row['rollback_depth'] = len(db['history'].get(row['name'], [])) if folder.parent == m.target else 0
                 installed = sum(row['present'] for row in rows)
                 managed = sum(row['present'] and row['managed'] for row in rows)
                 counts = {'installed': installed, 'managed': managed, 'unmanaged': installed - managed,
                           'missing': sum(not row['present'] and row['has_source'] and row['status'] != 'linked' for row in rows),
                           'attention': sum(row['status'] in ('invalid', 'linked', 'nested') for row in rows)}
-                targets.append({'id': target_id, **config, 'skills': rows, 'counts': counts})
+                targets.append({'id': target_id, **config, 'agent': target_agent(config['path']), 'skills': rows, 'counts': counts})
             except (ValueError, OSError) as error:
                 targets.append({'id': target_id, **config, 'skills': [], 'error': str(error)})
         return {'source': str(self.source), 'targets': targets}
@@ -87,28 +99,64 @@ class Dashboard:
                   'upstream_files': m.validate(name) if name in m.sources else None,
                   'receipt': m.db()['installed'].get(name)}
         result['comparison'] = m.diff(name, True) if name in m.sources else None
+        result['invocation'] = self.invocation(m, name)
+        return result
+
+    def invocation(self, manager, name):
+        path = manager.target / name / 'SKILL.md'
+        agent = target_agent(manager.target)
+        present = False
+        error = None
+        try:
+            manager.validate_folder(path.parent, name)
+            present = True
+        except (ValueError, OSError) as problem:
+            error = str(problem)
+        command = AGENTS[agent]['invoke'] + name if agent else None
+        prompt = (f'{command}\n' if command else '') + (
+            f'請使用 {name}。先讀取以下 SKILL.md：\n{path}\n'
+            '先說明適用範圍與必要前置條件，這次只做唯讀檢查，不修改檔案、設備或設定。'
+            '若無法讀取請明確告知，並回報實際讀取路徑與工具結果。')
+        return {'agent': agent, 'installed': present, 'error': error, 'path': str(path),
+                'command': command, 'prompt': prompt, 'runtime_verified': False}
+
+    def diagnose(self, target, name=None):
+        if name is not None and not valid_name(name):
+            raise ValueError('Invalid skill name')
+        m = self.manager(target)
+        names = [name] if name else sorted(set(m.names) | {
+            row['name'] for row in m.scan() if Path(row['path']).parent == m.target})
+        roots = [Path(config['path']) for key, config in self.targets.items() if key != target]
+        result = m.doctor(roots, names=names)
+        result.update(target=self.targets[target], agent=target_agent(m.target), runtime_verified=False,
+                      scope='僅檢查已配置的本機位置、檔案、收據與同名副本；未驗證 agent 載入或執行依賴。')
         return result
 
     def preview(self, target, name, action):
-        if action not in ('adopt', 'keep', 'merge') or not valid_name(name):
+        if action not in ('adopt', 'keep', 'merge', 'install', 'rollback') or not valid_name(name):
             raise ValueError('Invalid action or skill name')
         with self.lock:
             m = self.manager(target)
-            stamp = m.preview_stamp(name)
-            result = m.adopt(name) if action == 'adopt' else m.reconcile(name, action)
-            m.verify_preview(name, stamp)
+            stamp = m.preview_stamp(name, action)
+            if action == 'install':
+                result = m.install(name, apply=False)
+            elif action == 'rollback':
+                result = m.rollback(name, apply=False)
+            else:
+                result = m.adopt(name) if action == 'adopt' else m.reconcile(name, action)
+            m.verify_preview(name, stamp, action)
             now = time.monotonic()
             self.plans = {key: plan for key, plan in self.plans.items() if plan['expires'] > now}
             if len(self.plans) >= 128:
                 self.plans.pop(next(iter(self.plans)))
             plan_id = None
-            if result.get('ok', True):
+            if result.get('ok', True) and result.get('action') != 'unchanged':
                 plan_id = secrets.token_urlsafe(24)
                 self.plans[plan_id] = {'target': target, 'name': name, 'action': action,
                                        'stamp': stamp, 'expires': now + 600}
             return {'plan_id': plan_id, 'expires_in_seconds': 600 if plan_id else 0,
-                    'target': self.targets[target], 'name': name, 'action': action, 'result': result,
-                    'comparison': m.diff(name, True) if name in m.sources else None}
+                    'target': self.targets[target], 'target_id': target, 'name': name, 'action': action, 'result': result,
+                    'comparison': m.diff(name, True) if name in m.sources and action != 'rollback' else None}
 
     def apply(self, plan_id):
         with self.lock:
@@ -116,7 +164,11 @@ class Dashboard:
             if not plan or plan['expires'] <= time.monotonic():
                 raise ValueError('Preview expired or was already used. Preview again before applying.')
             m = self.manager(plan['target'])
-            if plan['action'] == 'adopt':
+            if plan['action'] == 'install':
+                result = m.install(plan['name'], expected=plan['stamp'])
+            elif plan['action'] == 'rollback':
+                result = m.rollback(plan['name'], expected=plan['stamp'])
+            elif plan['action'] == 'adopt':
                 result = m.adopt(plan['name'], apply=True, expected=plan['stamp'])
             else:
                 result = m.reconcile(plan['name'], plan['action'], apply=True, expected=plan['stamp'])
@@ -175,6 +227,10 @@ def make_server(app, port=0):
                     query = parse_qs(path.query)
                     with app.lock:
                         self.reply(200, app.detail(query['target'][0], query['name'][0]))
+                elif path.path == '/api/doctor':
+                    query = parse_qs(path.query)
+                    with app.lock:
+                        self.reply(200, app.diagnose(query['target'][0], query.get('name', [None])[0]))
                 else:
                     self.reply(404, {'error': 'Not found'})
             except (ValueError, OSError, KeyError) as error:

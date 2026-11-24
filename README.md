@@ -31,10 +31,20 @@ python skill_dashboard.py --source /path/to/upstream --target "Local=/path/to/sk
 
 The page scans configured targets, searches skill names/descriptions (including
 Chinese text), displays per-file SHA-256 and base/local/upstream text patches,
-and provides **Preview adoption**, **Preview keep-local** and **Preview merge**.
+and provides previews for **install/update**, **rollback**, **adoption**,
+**keep-local** and **merge**. Select a source skill and choose any configured
+destination in its install panel; the preview shows the exact directory and file
+changes before Apply. A first-install rollback explicitly previews removal.
+
+**Diagnose current location** checks local structure, receipts and same-name
+copies across configured directories. Installed skills also offer a copyable
+read-only invocation prompt with the actual SKILL.md path and a recognized
+Pi/Codex/Claude Code/Cursor prefix. File checks do not verify agent runtime loading.
+
 Only a successful preview enables **Apply this preview**. Each preview is valid
 for 10 minutes and one use; apply rechecks local/upstream files, receipts and the
-baseline while holding the CLI operation lock. Changes since preview require a
+baseline while holding the CLI operation lock (rollback checks its saved snapshot
+instead of requiring a valid upstream). Changes since preview require a
 new preview. Conflicts never write markers into the active skill.
 
 No additional Python packages are needed. The server binds only to a random

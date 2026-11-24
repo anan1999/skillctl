@@ -196,6 +196,126 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual('local-only', row['status'])
         self.assertEqual(before, fingerprint(folder))
 
+    def test_install_preview_targets_selected_harness_and_first_rollback_removes_install(self):
+        second = self.root / 'project/.pi/skills'
+        self.app.targets['1'] = {'label': 'Pi project', 'path': str(second)}
+        before = fingerprint(self.root)
+        plan = self.request('/api/preview', {'target': '1', 'name': 'example-skill', 'action': 'install'})
+        self.assertEqual('1', plan['target_id'])
+        self.assertEqual('would-install', plan['result']['action'])
+        self.assertEqual(before, fingerprint(self.root))
+        self.assertIn('SKILL.md', [c['file'] for c in plan['result']['changes']])
+        self.request('/api/apply', {'plan_id': plan['plan_id']})
+        self.assertEqual(fingerprint(self.skill), fingerprint(second / 'example-skill'))
+        self.assertNotIn('example-skill', self.app.manager('0').db()['installed'])
+        detail = self.request('/api/detail?target=1&name=example-skill')
+        self.assertEqual('/skill:example-skill', detail['invocation']['command'])
+        self.assertTrue(detail['invocation']['installed'])
+        self.assertFalse(detail['invocation']['runtime_verified'])
+        self.assertIn(str((second / 'example-skill/SKILL.md').resolve()), detail['invocation']['prompt'])
+        before = fingerprint(self.root)
+        rollback = self.request('/api/preview', {'target': '1', 'name': 'example-skill', 'action': 'rollback'})
+        self.assertTrue(rollback['result']['removes_directory'])
+        self.assertEqual(before, fingerprint(self.root))
+        self.request('/api/apply', {'plan_id': rollback['plan_id']})
+        self.assertFalse((second / 'example-skill').exists())
+
+    def test_update_rollback_restores_bytes_and_rollback_does_not_depend_on_upstream(self):
+        self.adopt()
+        original = fingerprint(self.local)
+        (self.skill / 'notes.txt').write_text('new upstream\n')
+        before = fingerprint(self.root)
+        plan = self.preview('install')
+        self.assertEqual('would-update', plan['result']['action'])
+        self.assertEqual(before, fingerprint(self.root))
+        self.request('/api/apply', {'plan_id': plan['plan_id']})
+        self.assertEqual(fingerprint(self.skill), fingerprint(self.local))
+        (self.skill / 'SKILL.md').write_text('invalid upstream')
+        rollback = self.preview('rollback')
+        self.assertFalse(rollback['result']['removes_directory'])
+        self.assertTrue(rollback['result']['restores_managed'])
+        self.request('/api/apply', {'plan_id': rollback['plan_id']})
+        self.assertEqual(original, fingerprint(self.local))
+        undo_adoption = self.preview('rollback')
+        self.assertFalse(undo_adoption['result']['restores_managed'])
+        self.request('/api/apply', {'plan_id': undo_adoption['plan_id']})
+        self.assertEqual(original, fingerprint(self.local))
+        self.assertNotIn('example-skill', self.app.manager('0').db()['installed'])
+
+    def test_install_and_rollback_stale_previews_never_overwrite_changes(self):
+        self.adopt()
+        (self.skill / 'notes.txt').write_text('new upstream\n')
+        for action in ('install', 'rollback'):
+            with self.subTest(action=action):
+                plan = self.preview(action)
+                (self.local / 'edit.txt').write_text('keep this change')
+                before = fingerprint(self.local)
+                response = self.request('/api/apply', {'plan_id': plan['plan_id']}, code=409)
+                self.assertIn('stale', response['error'])
+                self.assertEqual(before, fingerprint(self.local))
+                (self.local / 'edit.txt').unlink()
+        plan = self.preview('install')
+        (self.skill / 'notes.txt').write_text('changed after preview')
+        self.request('/api/apply', {'plan_id': plan['plan_id']}, code=409)
+
+    def test_install_blocks_unmanaged_customized_and_drift_rollback_snapshots_are_checked(self):
+        self.request('/api/preview', {'target':'0','name':'example-skill','action':'install'}, code=409)
+        self.adopt()
+        (self.local / 'edit.txt').write_text('custom local')
+        self.request('/api/preview', {'target':'0','name':'example-skill','action':'install'}, code=409)
+        self.request('/api/preview', {'target':'0','name':'example-skill','action':'rollback'}, code=409)
+        kept = self.preview('keep')
+        self.request('/api/apply', {'plan_id':kept['plan_id']})
+        self.request('/api/preview', {'target':'0','name':'example-skill','action':'install'}, code=409)
+        rollback = self.preview('rollback')
+        backup = Path(self.app.manager('0').db()['history']['example-skill'][-1]['backup'])
+        (backup / 'notes.txt').write_text('tampered')
+        self.request('/api/apply', {'plan_id':rollback['plan_id']}, code=409)
+        self.request('/api/preview', {'target':'0','name':'example-skill','action':'rollback'}, code=409)
+
+    def test_new_actions_verify_preview_inside_lock_and_noop_has_no_apply_token(self):
+        self.adopt()
+        self.assertIsNone(self.preview('install')['plan_id'])
+        (self.skill / 'notes.txt').write_text('update')
+        manager = self.app.manager('0')
+        for action in ('install','rollback'):
+            stamp = manager.preview_stamp('example-skill', action)
+            with manager.lock():
+                with self.assertRaisesRegex(ValueError, 'Operation lock'):
+                    getattr(manager, action)('example-skill', expected=stamp)
+            (self.local / 'edit').write_text('new')
+            with self.assertRaisesRegex(ValueError, 'stale'):
+                getattr(manager, action)('example-skill', expected=stamp)
+            (self.local / 'edit').unlink()
+
+    def test_doctor_reports_invalid_and_different_copies_without_mutating(self):
+        other = self.root / 'other/.agents/skills'
+        shutil.copytree(self.local, other / 'example-skill')
+        (other / 'example-skill/notes.txt').write_text('different')
+        self.app.targets['1'] = {'label':'Codex', 'path': str(other)}
+        broken = self.target / 'broken'
+        broken.mkdir()
+        (broken / 'SKILL.md').write_text('missing frontmatter')
+        before = fingerprint(self.root)
+        report = self.request('/api/doctor?target=0')
+        self.assertEqual(before, fingerprint(self.root))
+        self.assertFalse(report['runtime_verified'])
+        example = next(row for row in report['skills'] if row['name']=='example-skill')
+        self.assertEqual(2,len(example['copies']))
+        self.assertFalse(example['duplicate_content_equal'])
+        self.assertEqual('invalid', next(row for row in report['skills'] if row['name']=='broken')['status'])
+        invocation = self.request('/api/detail?target=1&name=example-skill')['invocation']
+        self.assertEqual('$example-skill', invocation['command'])
+        self.request('/api/doctor?target=outside',code=400)
+        self.request('/api/doctor?target=0&name=../escape',code=400)
+        self.request('/api/doctor?target=0',code=403,headers={'X-Skillctl-Token':''})
+
+    def test_missing_source_descriptions_are_searchable_and_invocation_is_not_ready(self):
+        shutil.rmtree(self.local)
+        rows = self.request('/api/inventory?target=0')['targets'][0]['skills']
+        self.assertIn('相機',rows[0]['description'])
+        self.assertFalse(self.request('/api/detail?target=0&name=example-skill')['invocation']['installed'])
+
 
 if __name__ == '__main__':
     unittest.main()

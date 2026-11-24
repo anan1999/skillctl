@@ -262,7 +262,7 @@ class Manager:
         db = self.db()
         return [self.inspect(name, db) for name in self.names]
 
-    def doctor(self, roots):
+    def doctor(self, roots, names=None):
         advice = {
             'current': 'Installed bytes match the source and receipt.',
             'missing': 'Install this skill into the selected target.',
@@ -270,16 +270,29 @@ class Manager:
             'local-drift': 'Preserve local edits and reconcile them with the source before installing.',
             'unmanaged-identical': 'Use install --adopt-identical to enroll this existing copy.',
             'unmanaged-conflict': 'Preserve this copy and reconcile it with the source before adopting.',
+            'unmanaged-local': 'Review this local skill and adopt it to start tracking changes.',
             'local-only': 'Managed locally; select an upstream --source to compare or reconcile.',
             'customized': 'Local customizations are preserved. Use diff --text, then reconcile --strategy keep or merge.',
             'source-unbound': 'This locally adopted skill has no upstream baseline. Review diff and use reconcile --strategy keep to bind the selected source.',
         }
         db = self.db()
         rows = []
-        for name in self.names:
+        for name in (self.names if names is None else names):
             try:
-                row = self.inspect(name, db)
+                if not valid_name(name):
+                    raise ValueError('Invalid skill name: ' + name)
+                row = (self.inspect(name, db) if name in self.sources or name in db['installed']
+                       else {'name': name, 'status': 'unmanaged-local' if (self.target / name).exists() else 'missing'})
                 row['advice'] = advice[row['status']]
+                if (self.target / name).exists():
+                    try:
+                        self.validate_folder(self.target / name, name)
+                    except (ValueError, OSError) as error:
+                        row['error'] = str(error)
+                        # Keep drift as the primary status for CLI compatibility:
+                        # the unreviewed edits must still be preserved.
+                        if row['status'] != 'local-drift':
+                            row.update(status='invalid', advice='Fix the reported local structure, then rerun doctor.')
             except (ValueError, OSError, KeyError) as error:
                 row = {'name': name, 'status': 'invalid', 'error': str(error),
                        'advice': 'Fix the reported source or target file, then rerun doctor.'}
@@ -437,11 +450,21 @@ class Manager:
         if name not in self.names:
             self.names.append(name)
 
-    def preview_stamp(self, name):
+    def preview_stamp(self, name, action=None):
         """Bind an interactive preview to contents and receipts, not just a filename."""
         if not valid_name(name):
             raise ValueError('Invalid skill name')
         db = self.db()
+        if action == 'rollback':
+            history = db['history'].get(name, [])
+            record = history[-1] if history else {}
+            backup = Path(record['backup']) if record.get('backup') else None
+            if backup is not None and self.state not in backup.resolve().parents:
+                raise ValueError('Invalid rollback snapshot path')
+            payload = {'target': str(self.target), 'registry': db,
+                       'local': fingerprint(self.target / name),
+                       'backup': fingerprint(backup) if backup else None}
+            return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
         prior = db['installed'].get(name)
         base = self.baseline(name, prior, required=False) if prior else None
         payload = {'source': str(self.source), 'target': str(self.target), 'registry': db,
@@ -450,8 +473,8 @@ class Manager:
                    'base': {key: hashlib.sha256(value).hexdigest() for key, value in (base or {}).items()}}
         return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
-    def verify_preview(self, name, expected):
-        if expected is not None and self.preview_stamp(name) != expected:
+    def verify_preview(self, name, expected, action=None):
+        if expected is not None and self.preview_stamp(name, action) != expected:
             raise ValueError('Preview is stale; files or receipts changed. Preview again before applying.')
 
     def adopt(self, name, apply=False, expected=None):
@@ -534,8 +557,17 @@ class Manager:
         with self.lock():
             return operation()
 
-    def install(self, name, adopt=False):
-        with self.lock():
+    @staticmethod
+    def content_changes(before, after):
+        return [{'file': path, 'change': 'added' if path not in before else 'removed' if path not in after else 'modified',
+                 'before_sha256': hashlib.sha256(before[path]).hexdigest() if path in before else None,
+                 'after_sha256': hashlib.sha256(after[path]).hexdigest() if path in after else None,
+                 **text_diff(before.get(path), after.get(path), 'local/' + path, 'result/' + path)}
+                for path in sorted(before.keys() | after.keys()) if before.get(path) != after.get(path)]
+
+    def install(self, name, adopt=False, apply=True, expected=None):
+        def operation():
+            self.verify_preview(name, expected)
             desired = self.validate(name); destination = self.target / name
             current = fingerprint(destination); db = self.db(); prior = db['installed'].get(name)
             if prior is not None and current != prior['files']:
@@ -547,14 +579,25 @@ class Manager:
             if current is not None and prior is None and not (adopt and current == desired):
                 raise ValueError('Unmanaged installation; only --adopt-identical can enroll identical bytes: ' + name)
             if prior is not None and current == desired:
-                return {'name': name, 'action': 'unchanged'}
+                return {'name': name, 'action': 'unchanged', 'ok': True, 'changes': []}
+            if not apply:
+                return {'name': name, 'action': 'would-update' if prior else 'would-install', 'ok': True,
+                        'destination': str(destination), 'source': str(self.sources[name]),
+                        'before_files': current, 'after_files': desired,
+                        'changes': self.content_changes(self.contents(destination), self.contents(self.sources[name]))}
+            self.verify_preview(name, expected)
             self.record(name, self.sources[name], self.sources[name])
             return {'name': name, 'action': 'adopted' if prior is None and current is not None else 'installed'}
+        if not apply:
+            return operation()
+        with self.lock():
+            return operation()
 
-    def rollback(self, name):
+    def rollback(self, name, apply=True, expected=None):
         if name not in self.names:
             raise ValueError('Not in managed catalog: ' + name)
-        with self.lock():
+        def operation():
+            self.verify_preview(name, expected, 'rollback')
             db = self.db(); history = db['history'].get(name, [])
             if not history:
                 raise ValueError('No rollback snapshot: ' + name)
@@ -566,6 +609,13 @@ class Manager:
             if backup is not None:
                 if self.state not in backup.resolve().parents or fingerprint(backup) != record['previous_files']:
                     raise ValueError('Invalid or modified rollback snapshot')
+            if not apply:
+                return {'name': name, 'action': 'would-rollback', 'ok': True,
+                        'destination': str(destination), 'removes_directory': backup is None,
+                        'restores_managed': record['previous_receipt'] is not None,
+                        'before_files': current, 'after_files': record['previous_files'],
+                        'changes': self.content_changes(self.contents(destination), self.contents(backup) if backup else {})}
+            self.verify_preview(name, expected, 'rollback')
             # Compensation snapshot if registry persistence fails after replacement.
             compensation = self.state / 'snapshots' / uuid.uuid4().hex
             shutil.copytree(destination, compensation)
@@ -581,6 +631,10 @@ class Manager:
                 replace_directory(destination, compensation)
                 raise
             return {'name': name, 'action': 'rolled-back'}
+        if not apply:
+            return operation()
+        with self.lock():
+            return operation()
 
 
 def main():

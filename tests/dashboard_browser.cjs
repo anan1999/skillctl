@@ -57,7 +57,7 @@ const read = file => fs.readFileSync(file,'utf8');
   await page.unroute('**/api/config');
   await page.locator('#refresh').click();await ready();
   assert.equal(await page.locator('#rows tr').count(),5);
-  await page.locator('#query').fill('相機時間');assert.equal(await page.locator('#rows tr').count(),4);
+  await page.locator('#query').fill('相機時間');assert.equal(await page.locator('#rows tr').count(),5);
   await page.locator('#query').fill('不存在');assert.equal(await page.locator('#rows tr').count(),0);
   await page.locator('#query').fill('');
   assert.equal(await page.locator('#rows img').count(),0);

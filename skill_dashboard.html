@@ -7,6 +7,7 @@
  <p class="nav-heading">技能檢視</p>
  <nav id="filters" aria-label="技能狀態篩選">
   <button data-filter="all" aria-pressed="true"><span>全部技能</span><span class="filter-count">—</span></button>
+  <button data-filter="source" aria-pressed="false"><span>可安裝來源</span><span class="filter-count">—</span></button>
   <button data-filter="unmanaged" aria-pressed="false"><span>未納管</span><span class="filter-count">—</span></button>
   <button data-filter="modified" aria-pressed="false"><span>本機修改</span><span class="filter-count">—</span></button>
   <button data-filter="updates" aria-pressed="false"><span>可更新</span><span class="filter-count">—</span></button>
@@ -17,10 +18,11 @@
  <div class="sidebar-footer"><span class="online-dot"></span> 本機工作區<p>先預覽，再套用</p></div>
 </aside>
 <main>
- <header class="topbar"><div><p class="eyebrow">WORKSPACE / SKILLS</p><h1>技能庫</h1></div><button id="refresh">↻ 重新掃描</button></header>
+ <header class="topbar"><div><p class="eyebrow">WORKSPACE / SKILLS</p><h1>技能庫</h1></div><div class="header-actions"><button id="doctor">診斷目前位置</button><button id="refresh">↻ 重新掃描</button></div></header>
  <div id="notice" role="status" aria-live="polite">正在連線並載入管理位置…</div><noscript>請啟用 JavaScript 才能載入技能清單。</noscript>
  <section id="metrics" class="metrics" aria-label="目前位置統計"></section><p id="stats" class="sr-only" aria-live="polite">尚未完成掃描，數量待確認。</p>
  <div class="toolbar"><div class="search"><label class="sr-only" for="query">搜尋技能或描述</label><span aria-hidden="true">⌕</span><input id="query" type="search" placeholder="搜尋名稱、中文症狀或狀態…" autocomplete="off"><kbd>Ctrl K</kbd></div><span id="count" class="muted">待掃描</span></div>
+ <section id="doctor-report" class="doctor-report" aria-label="診斷報告" hidden><div class="detail-toolbar"><h2>位置診斷</h2><button id="close-doctor">收起診斷</button></div><div id="doctor-results"></div></section>
  <div id="workspace" class="workspace">
   <section class="inventory" aria-label="掃描結果">
    <div class="table-scroll"><table class="skills-table"><thead><tr><th>技能 / 用途</th><th>狀態</th><th><span class="sr-only">操作</span></th></tr></thead><tbody id="rows"></tbody></table></div>
@@ -33,9 +35,12 @@
     <div class="detail-toolbar"><span class="eyebrow">SKILL INSPECTOR</span><div><button id="expand-detail" aria-pressed="false">展開詳情</button><button id="close-detail" aria-label="關閉詳情">×</button></div></div>
     <h2 id="skill-name" tabindex="-1"></h2><p id="skill-description" class="skill-description"></p><p id="skill-path" class="path"></p>
     <p id="reason" class="explanation"></p><p id="revision" class="muted small"></p>
-    <div class="actions"><button id="adopt">預覽接管</button><button id="keep">預覽保留本機</button><button id="merge" class="primary">預覽合併更新</button></div>
+    <section class="install-box" aria-label="安裝與更新"><label for="install-target">安裝／更新到</label><select id="install-target"></select><p id="install-location" class="path"></p><button id="install" class="primary">預覽安裝</button></section>
+    <div class="actions"><button id="adopt">預覽接管</button><button id="keep">預覽保留本機</button><button id="merge">預覽合併更新</button><button id="rollback">預覽復原</button><button id="doctor-skill">診斷此技能</button></div>
+    <p id="rollback-info" class="muted small"></p>
     <p class="muted small">保留：維持本機，略過這次上游差異。合併：保留不衝突的本機修改並納入更新。</p>
-    <section id="preview" class="preview" aria-label="操作預覽" hidden><p class="eyebrow">REVIEW / 檢查後套用</p><h3 id="plan-title"></h3><p id="plan-summary"></p><div id="plan-changes"></div><p id="plan-expiry" class="muted small"></p><div class="apply-actions"><button id="apply" class="primary" disabled>套用此預覽</button><button id="cancel">取消預覽</button></div></section>
+    <section id="preview" class="preview" aria-label="操作預覽" hidden><p class="eyebrow">REVIEW / 檢查後套用</p><h3 id="plan-title"></h3><p id="plan-destination" class="path"></p><p id="plan-summary"></p><div id="plan-changes"></div><p id="plan-expiry" class="muted small"></p><div class="apply-actions"><button id="apply" class="primary" disabled>套用此預覽</button><button id="cancel">取消預覽</button></div></section>
+    <section class="invocation" aria-label="呼叫指引"><h3>在 agent 中呼叫</h3><p id="invoke-status" class="muted small"></p><textarea id="invoke-prompt" readonly aria-label="唯讀呼叫提示" rows="5"></textarea><button id="copy-invoke">複製呼叫提示</button><p class="muted small">貼到對應專案的 agent 對話。以工具紀錄確認實際讀取 SKILL.md；此頁不會呼叫模型或操作設備。</p></section>
     <div class="diff-heading"><h3>檔案差異</h3><div class="segmented" aria-label="差異顯示方式"><button id="unified" aria-pressed="true">統一</button><button id="split" aria-pressed="false">左右</button></div></div><div id="diffs"></div>
     <details class="receipt"><summary>逐檔 SHA-256 與安裝收據</summary><div id="hashes"></div></details>
    </div>
