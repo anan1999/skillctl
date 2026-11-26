@@ -13,6 +13,7 @@ import webbrowser
 from skillctl import AGENTS, Manager, fingerprint
 from skillctl_content import valid_name
 from skill_quality import assess, parse_json
+from skill_usage import assess as assess_usage
 
 
 ROOT = Path(__file__).resolve().parent
@@ -30,8 +31,9 @@ def target_agent(path):
 
 
 class Dashboard:
-    def __init__(self, source, targets, state, quality_report=None):
+    def __init__(self, source, targets, state, quality_report=None, usage_report=None):
         self.quality_report = Path(quality_report) if quality_report is not None else None
+        self.usage_report = Path(usage_report) if usage_report is not None else None
         self.source = Path(source).resolve()
         self.targets = {str(i): {'label': label, 'path': str(Path(path).expanduser().absolute())}
                         for i, (label, path) in enumerate(targets)}
@@ -126,6 +128,30 @@ class Dashboard:
             result.update(status='error', error=problem)
         result['configured'] = self.quality_report is not None
         return result
+
+    def usage(self, target, name, days=7):
+        """Read a configured aggregate snapshot, never session logs on an HTTP request."""
+        if not valid_name(name) or type(days) is not int or days not in (7, 30):
+            raise ValueError('Expected a valid skill name and days=7 or 30')
+        if target not in self.targets:
+            raise ValueError('Unknown target')
+        harness = target_agent(self.targets[target]['path'])
+        if harness != 'codex':
+            return assess_usage(None, name, days, harness=harness)
+        report = None
+        if self.usage_report is not None:
+            try:
+                with self.usage_report.open('rb') as handle:
+                    data = handle.read(MAX_REPORT_BYTES + 1)
+                if len(data) > MAX_REPORT_BYTES:
+                    raise ValueError('Usage report is larger than 2 MiB')
+                report = parse_json(data.decode('utf-8-sig'))
+                if not isinstance(report, dict):
+                    raise ValueError('Usage report must be an object')
+            except (ValueError, OSError, RecursionError):
+                return {'status': 'error', 'reads': None, 'conversations': None,
+                        'days': days, 'error': 'Usage snapshot cannot be read; collect it again.'}
+        return assess_usage(report, name, days, harness=harness)
 
     def invocation(self, manager, name):
         path = manager.target / name / 'SKILL.md'
@@ -256,6 +282,10 @@ def make_server(app, port=0):
                     query = parse_qs(path.query)
                     with app.lock:
                         self.reply(200, app.quality(query['target'][0], query['name'][0]))
+                elif path.path == '/api/usage':
+                    query = parse_qs(path.query)
+                    self.reply(200, app.usage(query['target'][0], query['name'][0],
+                                              int(query.get('days', ['7'])[0])))
                 elif path.path == '/api/doctor':
                     query = parse_qs(path.query)
                     with app.lock:
@@ -309,6 +339,7 @@ def main():
     parser.add_argument('--target', action='append', help='Named custom target: LABEL=PATH; repeat for multiple directories')
     parser.add_argument('--port', type=int, default=0, help='Loopback port (default: choose a free port)')
     parser.add_argument('--quality-report', type=Path, help='Optional local text-simulation quality report to show per skill')
+    parser.add_argument('--usage-report', type=Path, help='Optional aggregate snapshot from skill_usage.py collect')
     parser.add_argument('--open', action='store_true')
     args = parser.parse_args()
     if args.target and args.agent:
@@ -321,7 +352,7 @@ def main():
             parser.error('Each --target must be LABEL=PATH')
     else:
         targets = [(agent, args.project / AGENTS[agent]['project']) for agent in (args.agent or AGENTS)]
-    server = make_server(Dashboard(args.source, targets, args.state, args.quality_report), args.port)
+    server = make_server(Dashboard(args.source, targets, args.state, args.quality_report, args.usage_report), args.port)
     url = 'http://127.0.0.1:' + str(server.server_port)
     print(url, flush=True)
     if args.open:

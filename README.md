@@ -57,6 +57,30 @@ multi-user service. Keep the server terminal running while using the page.
 See [管理頁面指南](docs/dashboard.zh-TW.md) and
 [dashboard verification](docs/dashboard-verification.md).
 
+## Usage and quality together
+
+Select a skill in the management page to see **confirmed SKILL.md reads** and
+distinct conversations over the last **7 or 30 days**, beside its quality result.
+This is an offline snapshot of local Codex evidence, grouped by skill name across
+installation directories. Reads can include maintenance and repeated loading;
+they are not completed tasks or usage of the selected installed version.
+
+```sh
+python skill_usage.py collect --codex-home /path/to/.codex --output .demo/usage-report.json
+python skill_dashboard.py --source /path/to/upstream --target "Codex=/path/to/.codex/skills" --usage-report .demo/usage-report.json --quality-report .demo/quality-report.json --open
+```
+
+The collector reads local logs only and exports aggregates, without conversation
+text or session identifiers. Run it again to refresh the snapshot; switching
+periods or rescanning reloads the report. Missing reports and unsupported harnesses
+(including Pi) display an explicit status, not zero. Invalid or incomplete
+evidence cannot silently become a successful read. Keep real usage reports local.
+See [使用統計操作與限制](docs/usage.zh-TW.md).
+
+`python quality_demo.py --open` demonstrates both panels with synthetic data:
+`failure-triage` has 3 reads / 2 conversations in 7 days and 8 / 4 in 30 days.
+No model, personal history, or device access is needed.
+
 ## Skill quality pilot
 
 Try the panel without private skills, credentials, or model calls:

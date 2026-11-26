@@ -30,6 +30,7 @@ function notice(text, error=false) { $('notice').textContent = text; $('notice')
 function clearPlan() { plan = null; $('preview').hidden = true; $('apply').disabled = true; }
 function controls() {
   $('refresh').disabled = busy; $('target').disabled = busy;
+  $('usage-7').disabled=busy||!selected; $('usage-30').disabled=busy||!selected;
   $('doctor').disabled=busy||!fresh;$('doctor-skill').disabled=busy||!fresh||!selected;
   $('close-doctor').disabled=busy;$('install-target').disabled=busy||!selected;
   const elsewhere=$('install-target').value!==target()?.id;
@@ -150,6 +151,49 @@ function renderDiff(value) {
   }
   layout.append(nav,section);$('diffs').append(layout);
 }
+let usageDays=7;
+function resetUsage() {
+  $('usage-status').textContent='正在讀取使用紀錄…';
+  $('usage-status').dataset.state='loading';$('usage-counts').hidden=true;
+  $('usage-reads').textContent='—';$('usage-conversations').textContent='—';$('usage-meta').textContent='';
+  for(const days of [7,30]) $('usage-'+days).setAttribute('aria-pressed',String(days===usageDays));
+}
+function usageDate(value) {
+  const date=new Date(value);
+  return value&&!Number.isNaN(date.getTime())?date.toLocaleString('zh-TW',{hour12:false}):'—';
+}
+function renderUsage(data) {
+  const state=data?.status||'error';
+  $('usage-status').dataset.state=state;
+  $('usage-counts').hidden=state!=='ready';
+  const messages={unavailable:'尚未配置使用紀錄。',unsupported:'尚未支援此工具的使用統計；目前僅支援 Codex。',error:'使用紀錄無法讀取，請重新產生統計快照。'};
+  $('usage-status').textContent=state==='ready'?
+    (data.is_fixture?'示範資料 · ':'')+'最近 '+usageDays+' 天'+(data.reads===0?'：未找到可確認讀取紀錄。':'：已確認的 SKILL.md 讀取。'):
+    (messages[state]||messages.error);
+  if(state==='ready') {
+    $('usage-reads').textContent=String(data.reads);$('usage-conversations').textContent=String(data.conversations);
+    const coverage=data.coverage||{};
+    const notes=['Codex 本機對話，依技能名稱彙總；不是目前安裝副本或版本的使用量。',
+      '快照截至 '+usageDate(data.window_end)+' · 最近讀取 '+usageDate(data.last_read)+'。',
+      '已掃描 '+(coverage.files_scanned||0)+' 份對話紀錄。'];
+    if(data.stale)notes.push('快照已超過 24 小時，請重新產生。');
+    if(data.partial)notes.push('部分紀錄無法確認或解析；此為已確認的最低次數。');
+    $('usage-meta').textContent=notes.join(' ');
+  } else $('usage-meta').textContent=state==='unavailable'?
+    '先以 skill_usage.py collect 產生本機快照，再用 --usage-report 啟動管理頁面。':'';
+  $('usage-help').textContent='確認讀取 SKILL.md 不代表完成任務；重讀與維護也可能計入。'+
+    (state==='ready'?' 統計不會自動掃描對話；重新產生快照後，切換期間或重新掃描即可讀取。':'');
+}
+async function loadUsage(row) {
+  const targetId=target().id, days=usageDays;
+  let data;
+  try {data=await api('/api/usage?'+new URLSearchParams({target:targetId,name:row.name,days}));}
+  catch(_) {data={status:'error'};}
+  if(selected===row&&target()?.id===targetId&&usageDays===days)renderUsage(data);
+}
+for(const days of [7,30]) $('usage-'+days).addEventListener('click',()=>task(async()=>{
+  usageDays=days;resetUsage();if(selected)await loadUsage(selected);
+}));
 const qualityLabels={passed:'通過',failed:'未通過',error:'錯誤'};
 function resetQuality() {
   $('quality-status').textContent='正在讀取品質評估…';$('quality-status').dataset.state='loading';
@@ -191,10 +235,10 @@ async function selectSkill(row) {
   document.querySelector('.detail').scrollTop=0;
   $('skill-name').textContent = row.name; $('skill-path').textContent = row.path || '';
   $('reason').textContent = reasons[row.status] || row.status; $('revision').textContent = '';
-  $('diffs').textContent = '讀取差異中…'; $('hashes').replaceChildren(); resetQuality(); renderRows();
+  $('diffs').textContent = '讀取差異中…'; $('hashes').replaceChildren(); resetQuality(); resetUsage(); renderRows();
   if(row.status==='invalid') {
     $('reason').textContent=row.error||'檔案結構需要檢查。';$('diffs').textContent='結構檢查未通過，請先查看診斷報告。';
-    $('invoke-status').textContent='結構檢查未通過；請先修正診斷問題。未驗證 agent 載入。';await loadQuality(row);await diagnose(row.name);return;
+    $('invoke-status').textContent='結構檢查未通過；請先修正診斷問題。未驗證 agent 載入。';await Promise.all([loadQuality(row),loadUsage(row)]);await diagnose(row.name);return;
   }
   const data = await api('/api/detail?' + new URLSearchParams({target:target().id,name:row.name}));
   invocation=data.invocation;
@@ -203,7 +247,7 @@ async function selectSkill(row) {
   renderDiff(data.comparison);
   $('revision').textContent = '安裝來源版本：' + (data.receipt?.source_revision?.commit || '未記錄 Git 版本');
   $('hashes').append(node('pre',JSON.stringify({local:data.local_files,upstream:data.upstream_files,receipt:data.receipt},null,2)));
-  await loadQuality(row);
+  await Promise.all([loadQuality(row),loadUsage(row)]);
   notice('已載入 '+row.name+'；檢查差異後再預覽。');
   $('skill-name').focus({preventScroll:true});
 }
