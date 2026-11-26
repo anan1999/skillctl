@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "mode": "text-simulation",
+  "created_at": "2026-11-26T00:50:15+00:00",
+  "model": "claude-sonnet-5-5",
+  "suite_sha256": "b5700f6cddaa00187de40418894b6cb43018306f29883f7f26680ea996c8ed41",
+  "report_sha256": "858ecc59de68e1aae42f46e5abc883e1e4b72547b81ccf41bace7f6d2c41a54f",
+  "passed": 12,
+  "total": 12,
+  "provider_requests": 12,
+  "attempts_per_case": 1,
+  "recorded_usage": {
+    "prompt_tokens": 25278,
+    "completion_tokens": 555,
+    "total_tokens": 25833
+  },
+  "summed_request_elapsed_seconds": 29.374,
+  "cost_usd": null,
+  "metrics_scope": "Evaluation model requests only; summed elapsed is not wall time. Excludes implementation, coordinator and OpenHands usage. Provider billing unverified.",
+  "skills": {
+    "failure-triage": {
+      "passed": 4,
+      "total": 4,
+      "version": "32b77564a92d374f1d59947f6526c51d3b5098ddf347ce196425fdae202e851b"
+    },
+    "sysclaw-board-ipcam-time": {
+      "passed": 4,
+      "total": 4,
+      "version": "45c0d09b96ac096d57e3994f1a9e0a5d8f812a86f9818bbebdf34b6dce443245"
+    },
+    "agent-control": {
+      "passed": 4,
+      "total": 4,
+      "version": "bbf3f5194872002ef5f642298d71b98969cdc2fd2c3f78cf712b09fc0c689204"
+    }
+  },
+  "limitations": [
+    "Only SKILL.md was supplied to a text model; references were hashed, not loaded.",
+    "No actual device or harness actions were executed.",
+    "Single trial per case, no baseline comparison or statistical reliability claim.",
+    "Local receipts are not signed provider attestations."
+  ]
+}

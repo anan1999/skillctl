@@ -150,6 +150,35 @@ function renderDiff(value) {
   }
   layout.append(nav,section);$('diffs').append(layout);
 }
+const qualityLabels={passed:'通過',failed:'未通過',error:'錯誤'};
+function resetQuality() {
+  $('quality-status').textContent='正在讀取品質評估…';$('quality-status').dataset.state='loading';
+  $('quality-meta').textContent='';$('quality-cases').replaceChildren();
+}
+function renderQuality(data) {
+  resetQuality();
+  const state=['passed','failed','stale','untested','error'].includes(data?.status)?data.status:'error';
+  const counts=' '+(data.passed||0)+'/'+(data.total||0);
+  $('quality-status').dataset.state=state;
+  $('quality-status').textContent=({passed:'passed'+counts+' 通過',failed:'未通過'+counts,stale:'已過期'+counts,untested:'未測試',error:'報告錯誤'})[state]+(state==='error'&&data?.error?'：'+data.error:'');
+  const note='文字模擬（只把 SKILL.md 與合成案例交給模型作答），不是實際執行、裝置或 harness 驗證。'+(data.request_binding==='matched'?' 已核對送測提示。':' 尚無送測提示對應紀錄。');
+  $('quality-meta').textContent=state==='untested'?'尚無此技能的評估報告。'+note:
+    state==='error'?note:
+    note+' 模型 '+data.model+' · 日期 '+data.created_at+' · 版本 '+String(data.version).slice(0,12)+(state==='stale'?'。技能檔案已與評估時不同，結果僅供參考。':'');
+  for(const item of data?.cases||[]) {
+    const detail=node('details',undefined,'quality-case');detail.open=item.status!=='passed';
+    detail.append(node('summary',item.id+' · '+item.kind+' · '+(qualityLabels[item.status]||item.status)));
+    if(item.error)detail.append(node('p',item.error,'diagnostic-error'));
+    for(const check of item.checks||[])detail.append(node('p',check.path+'：期望 '+JSON.stringify(check.expected)+'，實際 '+JSON.stringify(check.actual)+(check.passed?'（符合）':'（不符）'),check.passed?'quality-pass':'quality-fail'));
+    $('quality-cases').append(detail);
+  }
+}
+async function loadQuality(row) {
+  let data;
+  try { data=await api('/api/quality?'+new URLSearchParams({target:target().id,name:row.name})); }
+  catch(error) { data={status:'error',error:error.message}; }
+  if(selected===row) renderQuality(data);
+}
 async function selectSkill(row) {
   notice('正在讀取 '+row.name+' 的差異…');
   selected = row; activeFile=null;comparison=null;clearPlan(); $('welcome').hidden = true; $('selected').hidden = false;
@@ -162,10 +191,10 @@ async function selectSkill(row) {
   document.querySelector('.detail').scrollTop=0;
   $('skill-name').textContent = row.name; $('skill-path').textContent = row.path || '';
   $('reason').textContent = reasons[row.status] || row.status; $('revision').textContent = '';
-  $('diffs').textContent = '讀取差異中…'; $('hashes').replaceChildren(); renderRows();
+  $('diffs').textContent = '讀取差異中…'; $('hashes').replaceChildren(); resetQuality(); renderRows();
   if(row.status==='invalid') {
     $('reason').textContent=row.error||'檔案結構需要檢查。';$('diffs').textContent='結構檢查未通過，請先查看診斷報告。';
-    $('invoke-status').textContent='結構檢查未通過；請先修正診斷問題。未驗證 agent 載入。';await diagnose(row.name);return;
+    $('invoke-status').textContent='結構檢查未通過；請先修正診斷問題。未驗證 agent 載入。';await loadQuality(row);await diagnose(row.name);return;
   }
   const data = await api('/api/detail?' + new URLSearchParams({target:target().id,name:row.name}));
   invocation=data.invocation;
@@ -174,6 +203,7 @@ async function selectSkill(row) {
   renderDiff(data.comparison);
   $('revision').textContent = '安裝來源版本：' + (data.receipt?.source_revision?.commit || '未記錄 Git 版本');
   $('hashes').append(node('pre',JSON.stringify({local:data.local_files,upstream:data.upstream_files,receipt:data.receipt},null,2)));
+  await loadQuality(row);
   notice('已載入 '+row.name+'；檢查差異後再預覽。');
   $('skill-name').focus({preventScroll:true});
 }

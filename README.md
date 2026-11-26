@@ -16,7 +16,8 @@ Try the complete browser workflow with disposable skills:
 python dashboard_demo.py --open
 ```
 
-Choose `adopt-demo` to preview and adopt an existing copy, `merge-demo` to combine
+The initial screen offers a guided, read-only log-analysis prompt workflow.
+Choose **管理技能 / Manage skills**, then `adopt-demo` to preview and adopt an existing copy, `merge-demo` to combine
 non-overlapping edits, or `conflict-demo` to inspect a blocked merge and choose
 keep-local instead. All demo files live in a temporary directory; stop the demo
 with Ctrl+C to clean them up.
@@ -55,6 +56,46 @@ multi-user service. Keep the server terminal running while using the page.
 
 See [管理頁面指南](docs/dashboard.zh-TW.md) and
 [dashboard verification](docs/dashboard-verification.md).
+
+## Skill quality pilot
+
+Try the panel without private skills, credentials, or model calls:
+
+```sh
+python quality_demo.py --open
+```
+
+Choose **管理技能 / Manage skills** and select a skill. The temporary demo
+deliberately shows passed, failed, stale, and untested examples. Its
+`DEMO-NO-MODEL` results are fixtures, not actual model evaluations.
+
+The optional quality panel shows **synthetic text-response evaluations**, with
+case-level expected/actual evidence, model, date and skill file hashes. It does
+not certify live agent tool behavior, device safety, or task completion. Changed
+skill files make previous results stale; untested skills never get a pass badge.
+
+The first suite has 12 cases for `failure-triage`, `sysclaw-board-ipcam-time` and
+`agent-control`: log evidence, injected instructions, clock arithmetic, missing
+device evidence, inappropriate skill selection, and false worker completion.
+The suite and deterministic grader are independent of the model answers.
+
+```sh
+python skill_quality.py prepare --suite quality/pilot.json --skill-root /path/to/skills --model YOUR_MODEL --output .demo/quality-run
+# Run the generated jobs with your chosen text-model adapter, then import its receipts:
+python skill_quality.py grade --plan .demo/quality-run/plan.json --receipt /path/to/result.json --output .demo/quality-report.json
+python skill_dashboard.py --source /path/to/upstream --target "Local=/path/to/skills" --quality-report .demo/quality-report.json --open
+```
+
+Preparation and grading use no network. Generated plans contain local skill
+instructions: keep them private. The three evaluated skills are user-supplied;
+the repository does not bundle private SYSCLAW instructions or Gateway credentials.
+See [品質測試操作與限制](docs/quality.zh-TW.md).
+The [recorded pilot result](quality/pilot-result.json) and
+[run summary](quality/pilot-run-summary.json) contain the actual 2026-11-26
+text-model trial: 12/12 cases passed on `claude-sonnet-5-5`, one attempt per case.
+The separate [helper result](quality/helper-smoke-result.json) records three
+real local script tests with synthetic logs. Neither result verifies live devices.
+See [verification scope and limits](docs/quality-verification.md).
 
 ## Manage the skills you already have
 

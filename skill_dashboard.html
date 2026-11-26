@@ -60,6 +60,7 @@
     <p class="muted small">保留：維持本機，略過這次上游差異。合併：保留不衝突的本機修改並納入更新。</p>
     <section id="preview" class="preview" aria-label="操作預覽" hidden><p class="eyebrow">REVIEW / 檢查後套用</p><h3 id="plan-title"></h3><p id="plan-destination" class="path"></p><p id="plan-summary"></p><div id="plan-changes"></div><p id="plan-expiry" class="muted small"></p><div class="apply-actions"><button id="apply" class="primary" disabled>套用此預覽</button><button id="cancel">取消預覽</button></div></section>
     <section class="invocation" aria-label="呼叫指引"><h3>在 agent 中呼叫</h3><p id="invoke-status" class="muted small"></p><textarea id="invoke-prompt" readonly aria-label="唯讀呼叫提示" rows="5"></textarea><button id="copy-invoke">複製呼叫提示</button><p class="muted small">貼到對應專案的 agent 對話。以工具紀錄確認實際讀取 SKILL.md；此頁不會呼叫模型或操作設備。</p></section>
+    <section class="quality" aria-label="文字模擬品質評估"><h3>文字模擬品質</h3><p id="quality-status" class="quality-status" role="status">尚未讀取。</p><p id="quality-meta" class="muted small"></p><div id="quality-cases"></div></section>
     <div class="diff-heading"><h3>檔案差異</h3><div class="segmented" aria-label="差異顯示方式"><button id="unified" aria-pressed="true">統一</button><button id="split" aria-pressed="false">左右</button></div></div><div id="diffs"></div>
     <details class="receipt"><summary>逐檔 SHA-256 與安裝收據</summary><div id="hashes"></div></details>
    </div>

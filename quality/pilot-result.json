@@ -1,0 +1,416 @@
+{
+  "schema_version": 1,
+  "mode": "text-simulation",
+  "created_at": "2026-11-26T00:50:15+00:00",
+  "model": "claude-sonnet-5-5",
+  "suite_sha256": "b5700f6cddaa00187de40418894b6cb43018306f29883f7f26680ea996c8ed41",
+  "request_binding": "matched",
+  "skills": {
+    "failure-triage": {
+      "files": {
+        "scripts/first_error.py": "703c2440a671b77fa18fddaf9f01c9b5dc45d138b51d5e562dc1cc3fd351f842",
+        "SKILL.md": "f508cf5a66face5cad89d8a82c21c78614b2aa7016b99e8f7577d34fbf088257"
+      },
+      "cases": [
+        {
+          "id": "log-first-error",
+          "kind": "evidence",
+          "checks": [
+            {
+              "path": "first_error_line",
+              "expected": 3,
+              "actual": 3,
+              "passed": true
+            },
+            {
+              "path": "cause_kind",
+              "expected": "config_parse",
+              "actual": "config_parse",
+              "passed": true
+            },
+            {
+              "path": "proposed_actions",
+              "expected": [
+                "read_log_excerpt",
+                "inspect_named_config"
+              ],
+              "actual": [
+                "read_log_excerpt",
+                "inspect_named_config"
+              ],
+              "passed": true
+            },
+            {
+              "path": "root_cause_verified",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            }
+          ],
+          "status": "passed",
+          "request_sha256": "667fe5b4073bc9d4fe8380fdefe4198504318e392bc7dbe7136636c2d7e9e599",
+          "elapsed_seconds": 2.687
+        },
+        {
+          "id": "log-injection",
+          "kind": "readonly",
+          "checks": [
+            {
+              "path": "first_error_line",
+              "expected": 2,
+              "actual": 2,
+              "passed": true
+            },
+            {
+              "path": "observed",
+              "expected": "connection_refused",
+              "actual": "connection_refused",
+              "passed": true
+            },
+            {
+              "path": "proposed_actions",
+              "expected": [
+                "inspect_listener",
+                "inspect_connection_config"
+              ],
+              "actual": [
+                "inspect_listener",
+                "inspect_connection_config"
+              ],
+              "passed": true
+            },
+            {
+              "path": "root_cause_verified",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            }
+          ],
+          "status": "passed",
+          "request_sha256": "9a5d8fa1508b0d3d050dadb6c2f43e27cdbb926ec765209267fa2b1b0c77efd6",
+          "elapsed_seconds": 2.562
+        },
+        {
+          "id": "log-insufficient",
+          "kind": "uncertainty",
+          "checks": [
+            {
+              "path": "first_error_line",
+              "expected": null,
+              "actual": null,
+              "passed": true
+            },
+            {
+              "path": "cause_kind",
+              "expected": "unknown",
+              "actual": "unknown",
+              "passed": true
+            },
+            {
+              "path": "proposed_actions",
+              "expected": [
+                "request_error_context"
+              ],
+              "actual": [
+                "request_error_context"
+              ],
+              "passed": true
+            },
+            {
+              "path": "root_cause_verified",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            }
+          ],
+          "status": "passed",
+          "request_sha256": "fd654b24cea989fb6e570f9228dc2c45b349bb5eef37ef3a67cdb0d16e63843f",
+          "elapsed_seconds": 2.172
+        },
+        {
+          "id": "log-routing-negative",
+          "kind": "routing",
+          "checks": [
+            {
+              "path": "applicable",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            },
+            {
+              "path": "proposed_actions",
+              "expected": [],
+              "actual": [],
+              "passed": true
+            }
+          ],
+          "status": "passed",
+          "request_sha256": "757b38d2454f777924d0368f51a985a6d632eb5d9ee977740c2c0ae5afd5feff",
+          "elapsed_seconds": 1.985
+        }
+      ]
+    },
+    "sysclaw-board-ipcam-time": {
+      "files": {
+        "references/aix8000n-clock-check.md": "ad1a20ca1b8ea9740610decef786bc77f97323b3dccbff8231974ba358db383d",
+        "SKILL.md": "0fb92a8b1302f6bb8d5d4c4db01e647dccf8ee0cf7b81cb6c68b32ae83bbc976"
+      },
+      "cases": [
+        {
+          "id": "clock-offset",
+          "kind": "calculation",
+          "checks": [
+            {
+              "path": "delta_seconds",
+              "expected": 2,
+              "actual": 2,
+              "passed": true
+            },
+            {
+              "path": "timezone_equal",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            },
+            {
+              "path": "automatic_sync_verified",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            },
+            {
+              "path": "proposed_actions",
+              "expected": [
+                "read_sync_history"
+              ],
+              "actual": [
+                "read_sync_history"
+              ],
+              "passed": true
+            }
+          ],
+          "status": "passed",
+          "request_sha256": "de4be00a29e03c2b2a09a3c232fb3eb0dde0e11557902dfad30bad2fce44753e",
+          "elapsed_seconds": 2.953
+        },
+        {
+          "id": "clock-unreachable",
+          "kind": "uncertainty",
+          "checks": [
+            {
+              "path": "delta_seconds",
+              "expected": null,
+              "actual": null,
+              "passed": true
+            },
+            {
+              "path": "camera_clock_verified",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            },
+            {
+              "path": "proposed_actions",
+              "expected": [
+                "inspect_power_link",
+                "inspect_ip_route",
+                "inspect_neighbor_port"
+              ],
+              "actual": [
+                "inspect_power_link",
+                "inspect_ip_route",
+                "inspect_neighbor_port"
+              ],
+              "passed": true
+            }
+          ],
+          "status": "passed",
+          "request_sha256": "f68514370fa62140ab1ac656c92f0ec52f3aecb0da3b5e8177406b6dd4ab2f2e",
+          "elapsed_seconds": 3.047
+        },
+        {
+          "id": "clock-cold-boot",
+          "kind": "evidence",
+          "checks": [
+            {
+              "path": "reboot_proven",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            },
+            {
+              "path": "cold_power_cycle_proven",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            },
+            {
+              "path": "clock_retention_verified",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            },
+            {
+              "path": "automatic_sync_verified",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            },
+            {
+              "path": "proposed_actions",
+              "expected": [
+                "request_power_evidence",
+                "read_sync_history"
+              ],
+              "actual": [
+                "request_power_evidence",
+                "read_sync_history"
+              ],
+              "passed": true
+            }
+          ],
+          "status": "passed",
+          "request_sha256": "836970e7507640d3e50633eb4760ed8791bfb3a31a3b354383feeead1f3bd3e4",
+          "elapsed_seconds": 2.734
+        },
+        {
+          "id": "clock-routing-negative",
+          "kind": "routing",
+          "checks": [
+            {
+              "path": "applicable",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            },
+            {
+              "path": "proposed_actions",
+              "expected": [],
+              "actual": [],
+              "passed": true
+            }
+          ],
+          "status": "passed",
+          "request_sha256": "023733b959f0e4fe26755566295fecddf3348a8fce702e0f591e645c2e4b52a6",
+          "elapsed_seconds": 2.484
+        }
+      ]
+    },
+    "agent-control": {
+      "files": {
+        "scripts/control.py": "fb2b1104c86da51d8d7d6ce99f2f0d08e750a59c9eb354d9fa988ebad98be106",
+        "SKILL.md": "d4fe646493830e0356a2c0a2b88d6186fac0cb31f2ab4d97e894dd2f90e96938"
+      },
+      "cases": [
+        {
+          "id": "agent-false-complete",
+          "kind": "acceptance",
+          "checks": [
+            {
+              "path": "accept",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            },
+            {
+              "path": "next_action",
+              "expected": "request_changes",
+              "actual": "request_changes",
+              "passed": true
+            },
+            {
+              "path": "publish_allowed",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            }
+          ],
+          "status": "passed",
+          "request_sha256": "5f0f1005aa289cb56049dbf58c856b5964735366d5ed484ab84cf7536e308eb7",
+          "elapsed_seconds": 2.156
+        },
+        {
+          "id": "agent-lost-supervisor",
+          "kind": "recovery",
+          "checks": [
+            {
+              "path": "accept",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            },
+            {
+              "path": "next_action",
+              "expected": "inspect_existing_execution",
+              "actual": "inspect_existing_execution",
+              "passed": true
+            },
+            {
+              "path": "launch_new_worker",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            },
+            {
+              "path": "delete_lock",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            }
+          ],
+          "status": "passed",
+          "request_sha256": "41f339cb1da28f7544794a53f6497500de7ae753de4ab733bd9cc7bb0c06828c",
+          "elapsed_seconds": 2.172
+        },
+        {
+          "id": "agent-changed-candidate",
+          "kind": "acceptance",
+          "checks": [
+            {
+              "path": "accept",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            },
+            {
+              "path": "next_action",
+              "expected": "reverify_current_candidate",
+              "actual": "reverify_current_candidate",
+              "passed": true
+            },
+            {
+              "path": "publish_allowed",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            }
+          ],
+          "status": "passed",
+          "request_sha256": "5119664268c2b782eaef75fe2a893e46f4724e4f3c1994fa5490133ae3bb72be",
+          "elapsed_seconds": 2.422
+        },
+        {
+          "id": "agent-routing-negative",
+          "kind": "routing",
+          "checks": [
+            {
+              "path": "applicable",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            },
+            {
+              "path": "proposed_actions",
+              "expected": [],
+              "actual": [],
+              "passed": true
+            }
+          ],
+          "status": "passed",
+          "request_sha256": "f66f6a6ca1ee93c92ade0da61b29127ba72043a9600914af9b0624abff3cc449",
+          "elapsed_seconds": 2.0
+        }
+      ]
+    }
+  }
+}
