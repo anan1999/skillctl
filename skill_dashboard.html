@@ -3,7 +3,8 @@
 <body>
 <aside class="sidebar" aria-label="管理導覽">
  <a class="brand" href="/"><span class="brand-mark">s/</span>skillctl<span class="local-tag">LOCAL</span></a>
- <div class="location"><label for="target">管理位置</label><select id="target"></select><p id="target-path" class="path"></p></div>
+ <nav class="view-nav" aria-label="主要導覽"><button id="show-start" aria-pressed="true">開始一件工作</button><button id="show-library" aria-pressed="false">管理技能</button></nav>
+ <div class="location"><label for="target">使用位置 / AI 工具</label><select id="target"></select><p id="target-path" class="path"></p></div>
  <p class="nav-heading">技能檢視</p>
  <nav id="filters" aria-label="技能狀態篩選">
   <button data-filter="all" aria-pressed="true"><span>全部技能</span><span class="filter-count">—</span></button>
@@ -18,8 +19,26 @@
  <div class="sidebar-footer"><span class="online-dot"></span> 本機工作區<p>先預覽，再套用</p></div>
 </aside>
 <main>
- <header class="topbar"><div><p class="eyebrow">WORKSPACE / SKILLS</p><h1>技能庫</h1></div><div class="header-actions"><button id="doctor">診斷目前位置</button><button id="refresh">↻ 重新掃描</button></div></header>
+ <header class="topbar"><div><p class="eyebrow" id="page-eyebrow">WORKSPACE / START</p><h1 id="page-title">讓 AI 幫你完成第一件事</h1></div><div class="header-actions"><button id="doctor">診斷目前位置</button><button id="refresh">↻ 重新掃描</button></div></header>
  <div id="notice" role="status" aria-live="polite">正在連線並載入管理位置…</div><noscript>請啟用 JavaScript 才能載入技能清單。</noscript>
+ <section id="task-start" aria-label="分析錯誤日誌工作引導">
+  <div class="task-hero"><p class="eyebrow">第一個工作範本 · 唯讀分析</p><h2>這段錯誤，該從哪裡查起？</h2><p>帶一段日誌進來，準備好 AI 需要的背景與分析方式。拿到回答後，再確認它有沒有證據。</p><div class="task-benefits"><span>找出錯誤線索</span><span>區分事實與猜測</span><span>取得下一步檢查</span></div></div>
+  <ol class="task-steps" aria-label="工作步驟"><li>1 準備日誌</li><li>2 帶到你的 AI</li><li>3 檢查回答</li></ol>
+  <div class="task-grid">
+   <section class="task-card"><h3><span class="step-number">1</span> 你遇到了什麼問題？</h3><label for="task-context">背景（選填）</label><input id="task-context" maxlength="1000" placeholder="例如：服務啟動失敗，剛更新過設定。">
+    <div class="task-input-heading"><label for="task-log">錯誤日誌</label><button id="task-sample">先用範例試試</button></div>
+    <textarea id="task-log" rows="9" maxlength="65536" placeholder="貼上錯誤前後的日誌；請先移除密碼、Token 與個人資料。"></textarea>
+    <label for="task-file" class="muted small">或選擇 UTF-8 文字檔（最多 64 KiB）</label><input id="task-file" type="file" accept=".txt,.log,text/plain"><p id="task-input-note" class="muted small">日誌只在此頁暫存，不會由頁面傳送。重新整理或關閉分頁會清除；貼到 AI 後，依該工具的資料處理方式運作。</p>
+    <button id="task-build" class="primary">準備分析提示 →</button><p id="task-feedback" role="status" aria-live="polite"></p>
+   </section>
+   <section class="task-card"><h3><span class="step-number">2</span> 帶到你原本的 AI</h3><p id="task-destination">正在確認使用位置…</p><p id="task-capability" class="task-readiness"></p><button id="task-skill" hidden>查看分析技能</button>
+    <div id="task-output" hidden><label for="task-prompt">已準備的提示</label><textarea id="task-prompt" readonly rows="10"></textarea><button id="task-copy" class="primary">複製，帶到 AI 對話</button><p id="task-copy-status" role="status" aria-live="polite"></p></div>
+    <p id="task-output-empty" class="task-placeholder">先填日誌，或按「先用範例試試」。<br>提示會包含行號、分析要求與唯讀限制。</p>
+    <details class="task-help"><summary>貼上以後，我要看什麼？</summary><p>到左側所選位置對應的 AI 對話貼上提示。若提示引用了技能，請查看工具紀錄是否成功讀取指定 SKILL.md。複製成功不代表 agent 已載入或分析完成。</p><p>此頁不會啟動 agent、執行命令或操作設備，也不會變更模型與 Gateway 設定。</p></details>
+   </section>
+  </div>
+  <section class="task-card task-review"><h3><span class="step-number">3</span> 回答真的幫得上忙嗎？</h3><p>把 AI 回答貼回來，對照原始日誌檢查。勾選只代表你的人工確認，不是系統驗證。</p><label for="task-answer">AI 回答</label><textarea id="task-answer" rows="5" maxlength="65536" placeholder="執行後貼上回答。這裡不會自動判斷正確，也不會送到模型。"></textarea><div class="task-checks"><label><input type="checkbox" id="task-check-evidence"> 引用的行號與原始日誌相符</label><label><input type="checkbox" id="task-check-uncertainty"> 可能原因與已確認事實有分開</label><label><input type="checkbox" id="task-check-next"> 提出了可執行的唯讀檢查，沒有宣稱未做過的操作</label></div><p id="task-review-status" role="status" aria-live="polite">尚未貼入回答。</p><button id="task-export" disabled>下載本次工作紀錄</button><button id="task-clear">清除本次資料</button><p class="muted small">下載紀錄包含你輸入的日誌與回答；分享前請再次檢查敏感內容。</p></section>
+ </section>
  <section id="metrics" class="metrics" aria-label="目前位置統計"></section><p id="stats" class="sr-only" aria-live="polite">尚未完成掃描，數量待確認。</p>
  <div class="toolbar"><div class="search"><label class="sr-only" for="query">搜尋技能或描述</label><span aria-hidden="true">⌕</span><input id="query" type="search" placeholder="搜尋名稱、中文症狀或狀態…" autocomplete="off"><kbd>Ctrl K</kbd></div><span id="count" class="muted">待掃描</span></div>
  <section id="doctor-report" class="doctor-report" aria-label="診斷報告" hidden><div class="detail-toolbar"><h2>位置診斷</h2><button id="close-doctor">收起診斷</button></div><div id="doctor-results"></div></section>

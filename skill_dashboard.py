@@ -210,10 +210,10 @@ def make_server(app, port=0):
                 return
             try:
                 if path.path in ('/', '/dashboard.js', '/dashboard.css'):
-                    filename, mime = {'/': ('skill_dashboard.html', 'text/html'),
-                                      '/dashboard.js': ('skill_dashboard.js', 'text/javascript'),
-                                      '/dashboard.css': ('skill_dashboard.css', 'text/css')}[path.path]
-                    data = (ROOT / filename).read_bytes()
+                    filenames, mime = {'/': (('skill_dashboard.html',), 'text/html'),
+                                       '/dashboard.js': (('skill_dashboard.js', 'skill_tasks.js'), 'text/javascript'),
+                                       '/dashboard.css': (('skill_dashboard.css', 'skill_tasks.css'), 'text/css')}[path.path]
+                    data = b'\n'.join((ROOT / filename).read_bytes() for filename in filenames)
                     if path.path == '/':
                         data = data.replace(b'__SESSION_TOKEN__', app.secret.encode())
                     self.reply(200, data, mime + '; charset=utf-8')
