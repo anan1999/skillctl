@@ -25,8 +25,11 @@ class HarnessCliTests(unittest.TestCase):
         self.home = self.root / 'home'
         self.home.mkdir()
         self.source = self.root / 'source'
-        shutil.copytree(ROOT / 'skills', self.source / 'skills')
-        shutil.copy2(ROOT / 'catalog.json', self.source / 'catalog.json')
+        # These scenarios install one skill and then diagnose the entire fixture.
+        # Keep the fixture independent of new packages added to the public catalog.
+        shutil.copytree(ROOT / 'skills/example-skill', self.source / 'skills/example-skill')
+        (self.source / 'catalog.json').write_text(
+            json.dumps({'schema': 1, 'skills': ['example-skill']}), encoding='utf-8')
         self.env = dict(os.environ, HOME=str(self.home), USERPROFILE=str(self.home),
                         PYTHONDONTWRITEBYTECODE='1', GIT_OPTIONAL_LOCKS='0')
 

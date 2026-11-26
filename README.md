@@ -8,6 +8,54 @@ Orca Pi Chat), Codex, Claude Code and Cursor target directories.
 
 [繁體中文操作指南](docs/quickstart.zh-TW.md)
 
+## Manage skills by asking your agent — no service required
+
+Install [skillctl-manager](skills/skillctl-manager/SKILL.md) and ask in Chinese:
+
+> 用 skillctl-manager 查最近 7 天、30 天哪些 skills 常用，以及它們的品質。
+>
+> 把 example-skill 裝到指定的 Pi 專案；先預覽。
+>
+> 看哪些 skills 有更新，說明本機修改為什麼擋住更新，先不要改。
+
+The skill runs a one-shot Python CLI using the existing `skillctl.py` manager.
+It starts no HTTP server, background worker or model call. Usage queries reuse
+local evidence snapshots (or explicitly refresh them); quality queries compare
+existing evaluation reports with current file hashes.
+
+Requirements: Python 3.10+, Git, and a local checkout of this repository.
+Install using the existing CLI, with your intended target/scope:
+
+```sh
+python skillctl.py --source /absolute/path/to/skillctl install skillctl-manager --agent codex --scope user --dry-run
+# After reviewing the target and authorizing installation:
+python skillctl.py --source /absolute/path/to/skillctl install skillctl-manager --agent codex --scope user
+```
+
+Configure `~/.config/skillctl/manager.json` once using the
+[setup reference](skills/skillctl-manager/references/setup.md). Reuse your existing
+source, installation locations and receipt/state directory. The installed skill
+locates the checkout using that config, `--repo`, or `SKILLCTL_REPO`.
+No machine-specific paths or configuration are shipped in the skill.
+
+You can also call the headless CLI directly:
+
+```sh
+python skill_manage.py --config /private/manager.json locations
+python skill_manage.py --config /private/manager.json usage --days 7 --refresh
+python skill_manage.py --config /private/manager.json usage --days 30
+python skill_manage.py --config /private/manager.json quality --target "Codex"
+python skill_manage.py --config /private/manager.json preview install example-skill --target "Project Pi"
+python skill_manage.py --config /private/manager.json apply PLAN_ID --target "Project Pi"
+```
+
+Previews persist a private, expiring, single-use plan. Apply checks the configured
+source/target and current file/receipt fingerprint inside the existing operation
+lock. User authorization is still required; the plan is not an approval token.
+Local modifications block ordinary updates and can be explicitly kept or merged.
+The browser UI below remains optional.
+See [on-demand manager verification](docs/manager-verification.md) for the tested scope.
+
 ## Local management page
 
 Try the complete browser workflow with disposable skills:

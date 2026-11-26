@@ -1,0 +1,4 @@
+interface:
+  display_name: "Skills 管理"
+  short_description: "用中文按需管理本機技能，查詢使用次數與品質，預覽安裝及更新"
+  default_prompt: "請用 $skillctl-manager 查看我的技能使用次數、品質與可更新項目。"
