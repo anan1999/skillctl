@@ -33,6 +33,11 @@ python -B -X utf8 "<skill-dir>/scripts/manage.py" locations
 
 ## 安裝與更新
 
+For task-based candidate trials, remembered failures, or replayable successful
+procedures, read [references/task-trials.md](references/task-trials.md). Use the
+on-demand `task` commands. Clearly separate deterministic fixtures, supplied skill
+text, actual Python verifier results, and native harness loading evidence.
+
 For project version pinning or restoring skills on another machine, read
 [references/project-lockfile.md](references/project-lockfile.md). Use `lock create`
 or `lock restore` to preview, then `lock apply` only within the current authorization.

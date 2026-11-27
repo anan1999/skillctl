@@ -253,6 +253,8 @@ def main(argv=None):
     sub = parser.add_subparsers(dest='command', required=True)
     import skill_init
     skill_init.add_parser(sub)
+    import skill_task
+    skill_task.add_parser(sub)
     sub.add_parser('locations')
     locked = sub.add_parser('lock', help='Create, inspect and restore a portable project lockfile')
     lock_sub = locked.add_subparsers(dest='lock_action', required=True)
@@ -312,6 +314,8 @@ def main(argv=None):
         app = Management(load_config(args.config))
         if args.command == 'locations':
             result = app.locations()
+        elif args.command == 'task':
+            result = skill_task.dispatch(app,args)
         elif args.command == 'list':
             result = app.listing(args.target, args.query)
         elif args.command == 'usage':

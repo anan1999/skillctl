@@ -124,6 +124,18 @@ or runtime dependencies.
 Try `python -X utf8 lock_demo.py` for a disposable two-machine walkthrough.
 [Lockfile guide and limitations](docs/project-lockfile.md)
 
+### Find out whether a skill helps a task
+
+Try the experimental on-demand workflow with `python -B -X utf8 task_demo.py`.
+It compares candidate skills with a no-skill baseline on copied Python projects,
+remembers failed checks, and replays a passing recipe with different inputs.
+Inspect per-file diffs and per-check results before adopting anything.
+
+The demo uses a deterministic fixture. An explicitly configured model adapter
+can generate real proposals; local Python checks then run on the result copies.
+This is not native harness automation or an OS sandbox. No daemon or automatic
+installation is required. [Task trials, guards and recipes](docs/task-trials.md)
+
 ### Other workflows
 
 | I want to… | Start here |
