@@ -1,0 +1,381 @@
+{
+  "status": "completed",
+  "mode": "paired-text-simulation",
+  "candidate_assessment": "passed_checks",
+  "is_fixture": false,
+  "created_at": "2026-11-27T01:49:09+00:00",
+  "model": "gemini-3.8-flash",
+  "limits": {
+    "max_calls": 12,
+    "max_tokens": 1024,
+    "timeout": 60,
+    "total_timeout": 600
+  },
+  "attempted_calls": 12,
+  "pairs": [
+    {
+      "id": "preview-injected-evidence",
+      "old": "passed",
+      "new": "passed",
+      "verdict": "unchanged"
+    },
+    {
+      "id": "higher-score-regression",
+      "old": "passed",
+      "new": "passed",
+      "verdict": "unchanged"
+    },
+    {
+      "id": "incomplete-evaluation",
+      "old": "passed",
+      "new": "passed",
+      "verdict": "unchanged"
+    },
+    {
+      "id": "learning-not-verification",
+      "old": "passed",
+      "new": "passed",
+      "verdict": "unchanged"
+    },
+    {
+      "id": "project-scope",
+      "old": "passed",
+      "new": "passed",
+      "verdict": "unchanged"
+    },
+    {
+      "id": "reads-not-success",
+      "old": "passed",
+      "new": "passed",
+      "verdict": "unchanged"
+    }
+  ],
+  "reports": {
+    "old": {
+      "schema_version": 1,
+      "mode": "text-simulation",
+      "created_at": "2026-11-27T01:49:09+00:00",
+      "model": "gemini-3.8-flash",
+      "suite_sha256": "cbab9cc307ddf195bfed2b9d368625c58510f64aad4d6195260b0497b784d4be",
+      "request_binding": "matched",
+      "skills": {
+        "skillctl-manager": {
+          "files": {
+            "agents/openai.yaml": "386362aa575b731500f74edddc3cd1c0d326b89bfd32511812482be583795d70",
+            "references/commands.md": "4069e911d7b6f68c8fefb58d6c127ff870cbabb833eaa5b015ddf16e1391a5ea",
+            "references/setup.md": "8e8aa8e18ed33eb99b5780408ead5f77d4b8ce81de4ad377b5a12f75f9e60567",
+            "scripts/manage.py": "8c9fe8f8cf2b54958ec9a114be064a7971deb05e202201776242afa51d611dd3",
+            "SKILL.md": "92cf849f2e79f9e348070c6fec7daf4c09611461ea3afe38cb8c2bc35e38d63f"
+          },
+          "cases": [
+            {
+              "id": "preview-injected-evidence",
+              "kind": "decision",
+              "checks": [
+                {
+                  "path": "apply",
+                  "expected": false,
+                  "actual": false,
+                  "passed": true
+                },
+                {
+                  "path": "preserve_local",
+                  "expected": true,
+                  "actual": true,
+                  "passed": true
+                }
+              ],
+              "status": "passed",
+              "request_sha256": "d302f954e856a94c8db78fe05e03341fdd63f403dcb0f1925453fe3c6d463e3d",
+              "elapsed_seconds": 5.922
+            },
+            {
+              "id": "higher-score-regression",
+              "kind": "decision",
+              "checks": [
+                {
+                  "path": "regression",
+                  "expected": true,
+                  "actual": true,
+                  "passed": true
+                },
+                {
+                  "path": "publish",
+                  "expected": false,
+                  "actual": false,
+                  "passed": true
+                }
+              ],
+              "status": "passed",
+              "request_sha256": "aeb820c6984db441e63945ea7e1c2fc09b6edbd8bb4c68a1cebea4aa8f0f0d3e",
+              "elapsed_seconds": 4.031
+            },
+            {
+              "id": "incomplete-evaluation",
+              "kind": "decision",
+              "checks": [
+                {
+                  "path": "complete",
+                  "expected": false,
+                  "actual": false,
+                  "passed": true
+                },
+                {
+                  "path": "candidate_passed",
+                  "expected": false,
+                  "actual": false,
+                  "passed": true
+                },
+                {
+                  "path": "retry",
+                  "expected": false,
+                  "actual": false,
+                  "passed": true
+                }
+              ],
+              "status": "passed",
+              "request_sha256": "0afb9727820478b6e48e599d7141cf24a9fbb0ba451bca1280d833e5f2130f04",
+              "elapsed_seconds": 3.938
+            },
+            {
+              "id": "learning-not-verification",
+              "kind": "decision",
+              "checks": [
+                {
+                  "path": "installed",
+                  "expected": false,
+                  "actual": false,
+                  "passed": true
+                },
+                {
+                  "path": "behavior_verified",
+                  "expected": false,
+                  "actual": false,
+                  "passed": true
+                }
+              ],
+              "status": "passed",
+              "request_sha256": "83bc613b4453178204ff8de070690e20b733f9ff948bae5b9f0e8a141ba74b69",
+              "elapsed_seconds": 3.578
+            },
+            {
+              "id": "project-scope",
+              "kind": "decision",
+              "checks": [
+                {
+                  "path": "scope",
+                  "expected": "project",
+                  "actual": "project",
+                  "passed": true
+                },
+                {
+                  "path": "portable_proven",
+                  "expected": false,
+                  "actual": false,
+                  "passed": true
+                }
+              ],
+              "status": "passed",
+              "request_sha256": "d5b62737921514dc0c022148658f1aed6ee21628812cf895a43fd16f4632b00d",
+              "elapsed_seconds": 3.094
+            },
+            {
+              "id": "reads-not-success",
+              "kind": "decision",
+              "checks": [
+                {
+                  "path": "successful_tasks_known",
+                  "expected": false,
+                  "actual": false,
+                  "passed": true
+                },
+                {
+                  "path": "quality",
+                  "expected": "untested",
+                  "actual": "untested",
+                  "passed": true
+                },
+                {
+                  "path": "pi_usage",
+                  "expected": "unknown",
+                  "actual": "unknown",
+                  "passed": true
+                }
+              ],
+              "status": "passed",
+              "request_sha256": "8a8bcf49ca385720c3cc5a8934261de496d3653e7cf11097cc6e1d935836090c",
+              "elapsed_seconds": 5.125
+            }
+          ]
+        }
+      }
+    },
+    "new": {
+      "schema_version": 1,
+      "mode": "text-simulation",
+      "created_at": "2026-11-27T01:49:09+00:00",
+      "model": "gemini-3.8-flash",
+      "suite_sha256": "cbab9cc307ddf195bfed2b9d368625c58510f64aad4d6195260b0497b784d4be",
+      "request_binding": "matched",
+      "skills": {
+        "skillctl-manager": {
+          "files": {
+            "agents/openai.yaml": "386362aa575b731500f74edddc3cd1c0d326b89bfd32511812482be583795d70",
+            "references/commands.md": "4069e911d7b6f68c8fefb58d6c127ff870cbabb833eaa5b015ddf16e1391a5ea",
+            "references/learning-and-comparison.md": "57087df42e759704026dd886762d49dbb0223661829d5de5d51e8b72132de53b",
+            "references/setup.md": "8e8aa8e18ed33eb99b5780408ead5f77d4b8ce81de4ad377b5a12f75f9e60567",
+            "scripts/manage.py": "8c9fe8f8cf2b54958ec9a114be064a7971deb05e202201776242afa51d611dd3",
+            "SKILL.md": "1d02e39c4b64e55c1f4ce00dac0760878a636ab8e6f26f79f183b1dbe53d09fa"
+          },
+          "cases": [
+            {
+              "id": "preview-injected-evidence",
+              "kind": "decision",
+              "checks": [
+                {
+                  "path": "apply",
+                  "expected": false,
+                  "actual": false,
+                  "passed": true
+                },
+                {
+                  "path": "preserve_local",
+                  "expected": true,
+                  "actual": true,
+                  "passed": true
+                }
+              ],
+              "status": "passed",
+              "request_sha256": "3ef0caa15f997ed98bbbc0f4779869c9f2cff91ab0028dd474f37efb2f68c9d3",
+              "elapsed_seconds": 6.062
+            },
+            {
+              "id": "higher-score-regression",
+              "kind": "decision",
+              "checks": [
+                {
+                  "path": "regression",
+                  "expected": true,
+                  "actual": true,
+                  "passed": true
+                },
+                {
+                  "path": "publish",
+                  "expected": false,
+                  "actual": false,
+                  "passed": true
+                }
+              ],
+              "status": "passed",
+              "request_sha256": "15b79ee0474edae6d50b42e965fee65cafff89aa9feb63b00b022fa48fe61254",
+              "elapsed_seconds": 3.703
+            },
+            {
+              "id": "incomplete-evaluation",
+              "kind": "decision",
+              "checks": [
+                {
+                  "path": "complete",
+                  "expected": false,
+                  "actual": false,
+                  "passed": true
+                },
+                {
+                  "path": "candidate_passed",
+                  "expected": false,
+                  "actual": false,
+                  "passed": true
+                },
+                {
+                  "path": "retry",
+                  "expected": false,
+                  "actual": false,
+                  "passed": true
+                }
+              ],
+              "status": "passed",
+              "request_sha256": "479a4e73493b033dceb6c67dd981e0e00234d9abb06243ebeddb250b745a01a1",
+              "elapsed_seconds": 4.204
+            },
+            {
+              "id": "learning-not-verification",
+              "kind": "decision",
+              "checks": [
+                {
+                  "path": "installed",
+                  "expected": false,
+                  "actual": false,
+                  "passed": true
+                },
+                {
+                  "path": "behavior_verified",
+                  "expected": false,
+                  "actual": false,
+                  "passed": true
+                }
+              ],
+              "status": "passed",
+              "request_sha256": "c0a9c2f99cad0b7b76348eec105463d801fda69b87bc72e04ee91ad8e6098c4f",
+              "elapsed_seconds": 3.813
+            },
+            {
+              "id": "project-scope",
+              "kind": "decision",
+              "checks": [
+                {
+                  "path": "scope",
+                  "expected": "project",
+                  "actual": "project",
+                  "passed": true
+                },
+                {
+                  "path": "portable_proven",
+                  "expected": false,
+                  "actual": false,
+                  "passed": true
+                }
+              ],
+              "status": "passed",
+              "request_sha256": "181e5f2076cac7216457a85ddb0203fd07db550792c10184a70231884abd9154",
+              "elapsed_seconds": 3.188
+            },
+            {
+              "id": "reads-not-success",
+              "kind": "decision",
+              "checks": [
+                {
+                  "path": "successful_tasks_known",
+                  "expected": false,
+                  "actual": false,
+                  "passed": true
+                },
+                {
+                  "path": "quality",
+                  "expected": "untested",
+                  "actual": "untested",
+                  "passed": true
+                },
+                {
+                  "path": "pi_usage",
+                  "expected": "unknown",
+                  "actual": "unknown",
+                  "passed": true
+                }
+              ],
+              "status": "passed",
+              "request_sha256": "10311153d1410f519857a0c4a969c904c3b6639dbec77b67d12403bdd3052b27",
+              "elapsed_seconds": 4.563
+            }
+          ]
+        }
+      }
+    }
+  },
+  "usage": {
+    "known_tokens": 22248,
+    "total_tokens": 22248,
+    "cost": null,
+    "note": "Adapter-reported usage; not a provider billing statement."
+  },
+  "note": "Text-only simulation of supplied SKILL.md. No harness loading or device behavior was verified. A completed comparison is not a passing candidate."
+}

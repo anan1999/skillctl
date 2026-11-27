@@ -56,6 +56,36 @@ Local modifications block ordinary updates and can be explicitly kept or merged.
 The browser UI below remains optional.
 See [on-demand manager verification](docs/manager-verification.md) for the tested scope.
 
+## Capture lessons and compare skill versions without a server
+
+Run `python workflow_demo.py --output .demo/workflow` for an isolated walkthrough:
+record a scoped learning receipt, explain a blocked update that would remove
+local guidance, and compare two versions against the same cases. The demo uses
+an explicitly labeled fixture adapter, with no model calls or device access.
+Use a new output directory for each run.
+
+The on-demand manager also supports `learn record/list/show`, `impact`, and
+`compare prepare/run`. Learning receipts retain evidence locations and hashes,
+not full conversations; recording a lesson does not create, verify or install a
+skill. Impact summaries show factual edits and suggested checks, not an automatic
+semantic safety judgment. Comparisons bind the suite, model and skill files,
+limit adapter calls/output allowance/time, and stop on errors without retrying.
+Missing or truncated results remain inconclusive; unknown usage/cost remains unknown.
+
+See [commands and adapter contract](skills/skillctl-manager/references/learning-and-comparison.md).
+Adapters are explicitly selected trusted local programs, not a sandbox. They must
+honor one request per invocation and the requested output limit. These are
+SKILL.md text simulations, not proof that a harness loaded a skill or completed a
+real-world task. Plans, receipts and model outputs should remain private.
+
+For a more involved file-management acceptance scenario, run
+`python workflow_acceptance.py --output /short/new/path`. It exercises two isolated
+agent directories, local drift, stale previews, a clean merge, overlapping edits,
+keep-local, rollback, target isolation, and evidence drift. On Windows choose a
+short writable path so snapshot filenames remain within the OS path-length limit.
+The [project coordination rules](AGENTS.md) describe how evidence, learning,
+comparison and authorized publication fit together.
+
 ## Local management page
 
 Try the complete browser workflow with disposable skills:

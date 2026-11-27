@@ -11,6 +11,8 @@ from skillctl import AGENTS, Manager, fingerprint
 from skillctl_content import is_link, valid_name
 from skill_quality import assess as assess_quality, parse_json
 from skill_usage import assess as assess_usage, collect, write_report
+import skill_workflow as workflow
+from skillctl import write_json
 
 DEFAULT_CONFIG = Path.home() / '.config/skillctl/manager.json'
 LIMIT = 2 * 1024 * 1024
@@ -257,10 +259,29 @@ def main(argv=None):
     usage.add_argument('--refresh', action='store_true')
     quality = sub.add_parser('quality'); quality.add_argument('name', nargs='?')
     doctor = sub.add_parser('doctor'); doctor.add_argument('name', nargs='?')
+    impact = sub.add_parser('impact'); impact.add_argument('name')
+    learn = sub.add_parser('learn')
+    learn_sub = learn.add_subparsers(dest='learn_action', required=True)
+    record = learn_sub.add_parser('record'); record.add_argument('--input', type=Path, required=True)
+    records = learn_sub.add_parser('list')
+    show = learn_sub.add_parser('show'); show.add_argument('receipt_id')
+    compare = sub.add_parser('compare')
+    compare_sub = compare.add_subparsers(dest='compare_action', required=True)
+    prepare = compare_sub.add_parser('prepare')
+    for option in ('suite', 'old', 'new', 'output'):
+        prepare.add_argument('--'+option, type=Path, required=True)
+    prepare.add_argument('--model', required=True)
+    prepare.add_argument('--max-calls', type=int, default=8)
+    prepare.add_argument('--max-tokens', type=int, default=1024)
+    prepare.add_argument('--timeout', type=int, default=60)
+    prepare.add_argument('--total-timeout', type=int, default=300)
+    run = compare_sub.add_parser('run')
+    for option in ('plan', 'adapter', 'output'):
+        run.add_argument('--'+option, type=Path, required=True)
     preview = sub.add_parser('preview')
     preview.add_argument('action', choices=ACTIONS); preview.add_argument('name')
     apply = sub.add_parser('apply'); apply.add_argument('plan_id')
-    for command in (listing, usage, quality, doctor, preview, apply):
+    for command in (listing, usage, quality, doctor, preview, apply, impact, record, records, show):
         command.add_argument('--target', help='Configured target label, not an arbitrary path')
     args = parser.parse_args(argv)
     try:
@@ -273,6 +294,24 @@ def main(argv=None):
             result = app.usage(args.name, args.days, args.target, args.refresh)
         elif args.command in ('quality', 'doctor'):
             result = getattr(app, args.command)(args.name, args.target)
+        elif args.command == 'impact':
+            _, manager = app.manager(args.target)
+            result = workflow.impact(manager, args.name)
+        elif args.command == 'learn':
+            _, manager = app.manager(args.target)
+            result = (workflow.record_learning(manager, read_object(args.input)) if args.learn_action == 'record'
+                      else workflow.learning_receipts(manager, getattr(args, 'receipt_id', None)))
+        elif args.command == 'compare':
+            if args.compare_action == 'prepare':
+                plan = workflow.prepare_comparison(read_object(args.suite), args.old, args.new, args.model,
+                    args.max_calls, args.max_tokens, args.timeout, args.total_timeout)
+                folder = workflow.fresh_directory(args.output)
+                write_json(folder/'plan.json', plan)
+                result = {'ok': True, 'plan': str(folder/'plan.json'), 'planned_calls': plan['planned_calls'],
+                          'limits': plan['limits'], 'max_requested_output_tokens': plan['max_requested_output_tokens'],
+                          'network': False, 'note': plan['note']}
+            else:
+                result = workflow.run_comparison(read_object(args.plan), read_object(args.adapter), args.output)
         elif args.command == 'preview':
             result = app.preview(args.action, args.name, args.target)
         else:
