@@ -1,16 +1,35 @@
-# 首次設定
+# First-time setup
 
-需要 Python 3.10+、Git 與本機 skillctl checkout（含 skill_manage.py）。技能資料夾提供入口和流程；核心仍由 checkout 的 skillctl.py 執行，沒有第二份安裝邏輯。
+Requires Python 3.10+, Git and a local skillctl checkout containing
+`skill_manage.py`. The skill provides the entrypoint and instructions; core
+operations continue to use the checkout's `skillctl.py`.
 
-如果已配置，不重建設定或改動現有來源／收據。依序採用使用者指定的 `--repo`、環境變數 `SKILLCTL_REPO`、設定檔的 `repo`，最後才查入口所在的父目錄是否為 checkout。找不到時詢問 checkout 位置；取得新 repo 或更新來源需有使用者要求。
+If configuration exists, preserve its source and receipts. Locate the checkout
+using, in order: explicit `--repo`, `SKILLCTL_REPO`, the config's `repo` field,
+then the entrypoint's parent directories. If it cannot be located, ask for the
+checkout path. Downloading or updating a source requires user authorization.
 
-設定檔預設是 `~/.config/skillctl/manager.json`。所有路徑使用實際絕對路徑；下例是格式示意，請換成已核對的位置：
+## Guided setup
 
-首次使用可在 checkout 執行 `python -X utf8 skill_manage.py init`。引導會列出
-使用者與指定專案的標準目錄，依使用者選擇預覽來源、目標與收據位置，再建立設定。
-既有設定保持原樣；初始化不安裝或接管 skills。非互動執行時，明確傳入
-`--source`、`--target "名稱=路徑"`、`--state`，使用 `--dry-run` 預覽，獲授權後
-才改成 `--yes` 儲存。自訂 `--config` 放在 `init` 前面。
+Run from the checkout:
+
+```sh
+python -X utf8 skill_manage.py init
+```
+
+Choose a source and named target from the standard user/project directories or
+enter a custom path. Review the source, targets and receipts directory before
+saving. Existing configuration stays unchanged. Initialization does not install
+or adopt skills.
+
+For noninteractive use, provide explicit `--source`, `--target "NAME=PATH"` and
+`--state`. Use `--dry-run` to preview, then `--yes` when authorized to save.
+A custom `--config` goes before `init`.
+
+## Configuration reference
+
+The default file is `~/.config/skillctl/manager.json`. Use verified absolute
+paths. The values below illustrate the format; replace them with actual locations.
 
 ```json
 {
@@ -28,30 +47,47 @@
 }
 ```
 
-- `source`：已有技能來源根目錄，可包含 catalog.json 或可發現的技能目錄。
-- `state`：沿用原有 skillctl 收據目錄。更換它會失去原有納管及復原歷史的連結。
-- `targets`：具名安裝位置，不要把 Codex user scope 的 `.agents/skills` 和既有 `.codex/skills` 自動當成同一份副本；以實際目錄為準。
-- `usage_report`、`quality_report` 是選用欄位；沒有報告時省略或設 null。尚無使用報告但已配置 `codex_home` 和輸出位置，可以執行 usage --refresh 建立。
-- `codex_home` 只供離線使用量收集，不讀取登入金鑰。品質查詢不生成新的模型評估。
+- `source`: existing upstream root, with a catalog or discoverable skill folders.
+- `state`: reuse the original receipts directory. Changing it disconnects
+  existing management and rollback history.
+- `targets`: named installation locations. Codex's `.agents/skills` and legacy
+  `.codex/skills` are separate copies; use the actual intended directory.
+- `usage_report` and `quality_report`: optional. Omit them or use null when
+  unavailable. If `codex_home` and an output path are configured,
+  `usage --refresh` can create a usage snapshot.
+- `codex_home`: used only for offline usage collection, not authentication keys.
+  Quality queries do not run new model evaluations.
 
-在 Windows 使用 JSON 的正斜線路徑，或正確跳脫反斜線。設定檔不含金鑰，仍不應上傳私人位置。
+On Windows, use forward slashes or correctly escaped backslashes in JSON.
+Keep private configuration paths out of public repositories.
 
-驗證入口：
+Verify the installed entrypoint:
 
 ```text
 python -B -X utf8 "<skill-dir>/scripts/manage.py" --repo "/absolute/path/to/skillctl" --config "/absolute/path/to/manager.json" locations
 ```
 
-安裝此 skill 可使用 checkout 的原有 CLI（下例先預覽，再於已授權時套用）：
+## Install the manager skill
 
-若來源是 skillctl checkout，也可沿用初始化設定，用
-`python skill_manage.py preview install skillctl-manager --target "名稱"` 取得計畫，
-再以 `apply PLAN_ID --target "名稱"` 套用。若日常來源是另一份技能集合，以下直接
-安裝範例的 `--target` 與 `--state` 必須採用 `locations` 顯示的實際值，保留既有管理歷史。
+If your configured source is the skillctl checkout, preview with:
+
+```sh
+python skill_manage.py preview install skillctl-manager --target "NAME"
+```
+
+Inspect the target and changes. When authorized, use
+`apply PLAN_ID --target "NAME"` with the same configuration.
+
+If your everyday source is another skill collection, install the manager from
+this checkout using the existing CLI. Replace `--target` and `--state` with the
+actual values shown by `locations`, preserving existing history:
 
 ```text
 python skillctl.py --source "/absolute/path/to/skillctl" --state "/configured/receipts" install skillctl-manager --target "/configured/skills" --dry-run
 python skillctl.py --source "/absolute/path/to/skillctl" --state "/configured/receipts" install skillctl-manager --target "/configured/skills"
 ```
 
-不同 harness 的技能載入方式由該 harness 決定；安裝後若目前對話尚未發現，可在新對話呼叫，或明確請 AI 讀取安裝後的 SKILL.md。這不要求任何常駐服務。
+Each harness controls skill discovery. If an existing session has not discovered
+the installation, start a new session or explicitly ask the agent to read the
+installed `SKILL.md`. Installation alone does not confirm loading. No running
+service is required.

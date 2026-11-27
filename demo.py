@@ -98,46 +98,44 @@ details {{margin-top:18px}} summary {{cursor:pointer}} dd {{margin:4px 0 12px;ov
 .small {{font-size:13px;color:var(--muted)}} .next {{margin-top:26px;border-top:1px solid var(--line);padding-top:18px}} [hidden] {{display:none!important}}
 @media(max-width:640px) {{main {{padding:22px 16px}} .columns {{grid-template-columns:1fr}} section {{padding:19px}} .brand,.bottom {{flex-wrap:wrap}}}}
 </style></head><body><main>
-<div class="brand"><span>SKILLCTL / 30-SECOND DEMO</span><span class="badge">5 FILE CHECKS PASSED · 檔案驗證通過</span></div>
+<div class="brand"><span>SKILLCTL / 30-SECOND DEMO</span><span class="badge">5 FILE CHECKS PASSED</span></div>
 <h1>Update your AI skills.<br>Keep your changes.</h1>
-<p class="lead">更新 AI skills，保留你自己的修改。<br>You added a project rule. A new upstream version arrived. See what happens next.</p>
+<p class="lead">You added a project rule. A new upstream version arrived. See what happens next.</p>
 <nav aria-label="Demo steps">
-<button type="button" data-step="0" aria-pressed="true" aria-controls="step-0">1 · Your change / 本機修改</button>
-<button type="button" data-step="1" aria-pressed="false" aria-controls="step-1">2 · Update blocked / 更新被擋</button>
-<button type="button" data-step="2" aria-pressed="false" aria-controls="step-2">3 · Keep both / 合併結果</button>
+<button type="button" data-step="0" aria-pressed="true" aria-controls="step-0">1 · Your change</button>
+<button type="button" data-step="1" aria-pressed="false" aria-controls="step-1">2 · Update blocked</button>
+<button type="button" data-step="2" aria-pressed="false" aria-controls="step-2">3 · Keep both</button>
 </nav>
-<section id="step-0" aria-labelledby="heading-0"><div class="label">The setup / 原本的情境</div>
+<section id="step-0" aria-labelledby="heading-0"><div class="label">The setup</div>
 <h2 id="heading-0">One skill. Two independent changes.</h2>
 <p>Two temporary directories started with the same skill. You edited one copy; the source then changed.</p>
-<p>兩份 skill 原本相同。你加了專案規則，上游也有新的內容。</p>
-<div class="columns"><div class="note local"><div class="label">Your rule / 你的指引 · SKILL.md</div><p><code>+ {local}</code></p><p class="small">交接時務必註明審閱者。</p></div>
-<div class="note upstream"><div class="label">Upstream update / 上游更新 · SKILL.md</div><p><code>+ {upstream}</code></p><p class="small">上游更新了交接標題。</p></div></div></section>
-<section id="step-1" aria-labelledby="heading-1"><div class="label">Protection / 保護你的修改</div>
+<div class="columns"><div class="note local"><div class="label">Your rule · SKILL.md</div><p><code>+ {local}</code></p></div>
+<div class="note upstream"><div class="label">Upstream update · SKILL.md</div><p><code>+ {upstream}</code></p></div></div></section>
+<section id="step-1" aria-labelledby="heading-1"><div class="label">Protection</div>
 <h2 id="heading-1" class="blocked">The update stops. Your rule stays.</h2>
 <p>skillctl found your local change in <code>SKILL.md</code>. Replacing the file would remove it, so the ordinary update was blocked.</p>
-<p>直接覆蓋會刪掉你的指引，因此更新停下來。檔案內容保持原樣。</p>
 <pre>{escape(result['patch'])}</pre>
-<details><summary>Exact block reason / 原始阻擋原因</summary><p>{escape(result['blocked_reason'])}</p></details></section>
-<section id="step-2" aria-labelledby="heading-2"><div class="label">After previewing a merge / 預覽並套用合併後</div>
+<details><summary>Exact block reason</summary><p>{escape(result['blocked_reason'])}</p></details></section>
+<section id="step-2" aria-labelledby="heading-2"><div class="label">After previewing a merge</div>
 <h2 id="heading-2">Your rule stays. The update arrives.</h2>
-<div class="result"><strong>Preserved + updated / 保留本機指引，也加入上游更新</strong><p><code>{upstream}</code></p><p><code>{local}</code></p></div>
+<div class="result"><strong>Your instructions, with the upstream update</strong><p><code>{upstream}</code></p><p><code>{local}</code></p></div>
 <p>These edits affect different lines, so the merge succeeded. The other installation stayed unchanged.</p>
-<p>這次修改在不同位置，所以可以合併。同一段文字的衝突會停下來，等待處理。</p>
-<details><summary>Inspect the merged SKILL.md / 查看完整結果</summary><pre>{escape(result['merged'])}</pre></details></section>
-<div class="bottom"><span class="small" id="progress" aria-live="polite">Real file operations in disposable directories / 使用暫存目錄實際驗證</span><button type="button" id="next" hidden>Next / 下一步 →</button></div>
-<details><summary>Verification evidence / 驗證依據</summary><ul>{''.join('<li>'+escape(item)+'</li>' for item in result['checks'])}</ul><dl>{hashes}</dl>
+<p>Overlapping edits stop the merge so you can decide how to resolve them.</p>
+<details><summary>Inspect the merged SKILL.md</summary><pre>{escape(result['merged'])}</pre></details></section>
+<div class="bottom"><span class="small" id="progress" aria-live="polite">Real file operations in disposable directories</span><button type="button" id="next" hidden>Next →</button></div>
+<details><summary>Verification evidence</summary><ul>{''.join('<li>'+escape(item)+'</li>' for item in result['checks'])}</ul><dl>{hashes}</dl>
 <p class="small">Synthetic example content; actual install, block, preview and merge checks. No agent, model or device was run. Temporary skill directories were removed after the run.</p></details>
-<div class="next"><strong>Try your own skills / 開始管理自己的 skills</strong><pre>python -X utf8 skill_manage.py init</pre>
+<div class="next"><strong>Try your own skills</strong><pre>python -X utf8 skill_manage.py init</pre>
 <p class="small">Run in the skillctl checkout. Choose your source and agent directory, then review before saving. Initialization changes no skills.</p>
-<p class="small">No server. No API key. Works offline. · 無常駐服務，無需 API 金鑰。</p></div>
+<p class="small">No server. No API key. Works offline.</p></div>
 </main><script>
 const buttons = [...document.querySelectorAll('[data-step]')];
 const panels = buttons.map((button) => document.getElementById(button.getAttribute('aria-controls')));
 const next = document.getElementById('next'); let step = 0;
 function show(value) {{step=value; panels.forEach((panel,index)=>panel.hidden=index!==step);
 buttons.forEach((button,index)=>button.setAttribute('aria-pressed',String(index===step)));
-next.textContent=step===2?'Replay / 再看一次 ↺':'Next / 下一步 →';
-document.getElementById('progress').textContent=(step+1)+' / 3 · Actual file checks / 實際檔案驗證';}}
+next.textContent=step===2?'Replay ↺':'Next →';
+document.getElementById('progress').textContent=(step+1)+' / 3 · Actual file checks';}}
 buttons.forEach((button,index)=>button.addEventListener('click',()=>show(index)));
 next.addEventListener('click',()=>show((step+1)%3)); next.hidden=false; show(0);
 </script></body></html>'''
@@ -155,9 +153,9 @@ def main():
         result = run_demo(Path(directory))
     with output.open('x', encoding='utf-8') as stream:
         stream.write(report(result))
-    print('1. You added a local rule to SKILL.md. / 加入本機指引')
-    print('2. An ordinary update was blocked; the file stayed intact. / 阻擋覆蓋')
-    print('3. Preview + merge kept your rule and the upstream update. / 合併保留兩邊修改')
+    print('1. You added a local rule to SKILL.md.')
+    print('2. An ordinary update was blocked; the file stayed intact.')
+    print('3. Preview + merge kept your rule and the upstream update.')
     print('PASS: 5 file checks; other installation unchanged. No agent/model/device calls.')
     print(output)
     if args.open:

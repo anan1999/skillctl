@@ -27,11 +27,11 @@ def add_parser(sub):
 def path_value(value):
     value = str(value).strip()
     if not value:
-        raise ValueError('A path cannot be empty / 路徑不能空白')
+        raise ValueError('A path cannot be empty')
     path = Path(value).expanduser().absolute()
     # Do not silently turn a selected alias into a different installation.
     if any(is_link(part) for part in (path, *path.parents)):
-        raise ValueError('Choose a real path, not a link / 請選擇實際目錄: ' + str(path))
+        raise ValueError('Choose a real path, not a link: ' + str(path))
     return path.resolve()
 
 
@@ -65,30 +65,30 @@ def overlaps(first, second):
 def make_config(source, targets, state, config_path):
     source, state, config_path = map(path_value, (source, state, config_path))
     if not source.is_dir():
-        raise ValueError('Source directory does not exist / 來源目錄不存在: ' + str(source))
+        raise ValueError('Source directory does not exist: ' + str(source))
     if state.exists() and not state.is_dir():
-        raise ValueError('State must be a directory / 收據位置必須是目錄')
+        raise ValueError('State must be a directory')
     if not targets:
-        raise ValueError('Choose at least one target / 請選擇至少一個管理位置')
+        raise ValueError('Choose at least one target')
     normalized = {}
     for label, value in targets:
         label = label.strip()
         if not label or label in normalized:
-            raise ValueError('Target names must be nonempty and unique / 名稱不能空白或重複')
+            raise ValueError('Target names must be nonempty and unique')
         target = path_value(value)
         if target.exists() and not target.is_dir():
-            raise ValueError('Target must be a directory / 目標必須是目錄')
+            raise ValueError('Target must be a directory')
         if any(overlaps(target, other) for other in (source, state, config_path, *normalized.values())):
-            raise ValueError('Source, targets, state and config must be separate / 來源、目標與管理資料不能重疊')
+            raise ValueError('Source, targets, state and config must be separate')
         # Validate the existing catalog/registry through the same read-only core.
         Manager(source, target, state)
         normalized[label] = target
     if overlaps(state, source) or overlaps(config_path, source) or overlaps(state, config_path):
-        raise ValueError('Keep config/state separate from skills and each other / 設定與收據請分開存放')
+        raise ValueError('Keep config/state separate from skills and each other')
     result = dict(schema_version=1, repo=str(REPO), source=str(source), state=str(state),
                   targets={label: str(path) for label, path in normalized.items()})
     if len(json.dumps(result, ensure_ascii=False).encode('utf-8')) > 60000:
-        raise ValueError('Configuration is too large / 設定檔過大')
+        raise ValueError('Configuration is too large')
     return result
 
 
@@ -98,12 +98,12 @@ def quote(value):
 
 def next_steps(config_path, config):
     command = 'python -X utf8 skill_manage.py --config ' + quote(config_path)
-    print('\nNext / 下一步（在 skillctl checkout 執行）:')
+    print('\nNext (run from your skillctl checkout):')
     print('  ' + command + ' locations')
     for label in config['targets']:
         print('  ' + command + ' list --target ' + quote(label))
-    print('Configuration is ready; no skills installed or adopted / 設定完成；尚未安裝或接管 skills。')
-    print('To let your agent manage skills, follow docs/quickstart.zh-TW.md or docs/initialization.md.')
+    print('Configuration is ready; no skills have been installed or adopted.')
+    print('To let your agent manage skills, follow README.md or docs/initialization.md.')
 
 
 def run(args, config_path, *, home=None, ask=None):
@@ -113,47 +113,47 @@ def run(args, config_path, *, home=None, ask=None):
     if config_path.exists():
         from skill_manage import load_config, Management
         config = load_config(config_path)  # Invalid existing files are never overwritten either.
-        print('Already configured; kept unchanged / 已有設定，保持原樣: ' + str(config_path))
+        print('Already configured; kept unchanged: ' + str(config_path))
         print(json.dumps(Management(config).locations(), ensure_ascii=False, indent=2))
         next_steps(config_path, config)
         return 0
     interactive = not (args.yes or args.dry_run)
     if interactive and ask is input and not sys.stdin.isatty():
-        raise ValueError('Use a terminal for guided setup, or pass --source, --target and --dry-run/--yes / 請在終端機執行引導設定')
+        raise ValueError('Use a terminal for guided setup, or pass --source, --target and --dry-run/--yes')
     if not interactive and (args.source is None or not args.target):
         raise ValueError('--dry-run/--yes requires explicit --source and --target; no targets guessed')
-    print('skillctl setup / 管理 skills 的第一次設定')
+    print('skillctl setup')
     print('Choose an upstream source and where your agent reads skills. Preview before saving.')
-    print('選來源與 AI 讀取 skills 的位置；這一步只寫設定，不安裝、不接管、不啟動服務。')
+    print('This only writes configuration. No skills are installed or adopted, and no service is started.')
     try:
         source = args.source
         if source is None:
-            print('\n1. Source / 來源：上游 skills 的本機副本。先試用可按 Enter 使用內附範例。')
+            print('\n1. Source: your local upstream skills folder. Press Enter to try the bundled examples.')
             source = ask('Source path [' + str(REPO) + ']: ').strip() or REPO
         targets = []
         for entry in args.target:
             if '=' not in entry:
-                raise ValueError('Use --target NAME=PATH / 目標格式為 名稱=路徑')
+                raise ValueError('Use --target NAME=PATH')
             targets.append(tuple(entry.split('=', 1)))
         if not targets:
-            print('\n2. Project / 專案：只查看這個專案和使用者的標準 skills 目錄。')
+            print('\n2. Project: inspect only this project and standard user skill directories.')
             project = args.project or (ask('Project path [' + str(Path.cwd()) + ']: ').strip() or Path.cwd())
             project = path_value(project)
             if not project.is_dir():
-                raise ValueError('Project directory does not exist / 專案目錄不存在')
+                raise ValueError('Project directory does not exist')
             rows = candidates(home, project)
             for number, row in enumerate(rows, 1):
-                status = f"existing / 已存在, {row['count']} direct skills" if row['exists'] else 'not created / 尚未建立'
+                status = f"existing, {row['count']} direct skills" if row['exists'] else 'not created'
                 print(f"  {number}. {row['label']}: {row['path']} ({status})")
-            print('  0. Custom path / 自訂目錄')
-            print('Existing folders are suggestions, not proof the agent loads them / 目錄存在不代表 agent 已載入。')
+            print('  0. Custom path')
+            print('Existing folders are suggestions, not proof the agent loads them.')
             while True:
-                selection = ask('Choose numbers, comma separated; q to cancel / 輸入編號，逗號分隔: ').strip()
+                selection = ask('Choose numbers, comma separated; q to cancel: ').strip()
                 if selection.lower() == 'q' or not selection:
-                    print('Cancelled; no files written / 已取消，未寫入檔案。')
+                    print('Cancelled; no files written.')
                     return 0
                 if selection == '0':
-                    targets = [(ask('Target name / 名稱: '), ask('Target directory / 目錄: '))]
+                    targets = [(ask('Target name: '), ask('Target directory: '))]
                     break
                 try:
                     numbers = list(dict.fromkeys(int(n.strip()) for n in selection.split(',')))
@@ -162,25 +162,25 @@ def run(args, config_path, *, home=None, ask=None):
                     targets = [(rows[n-1]['label'], rows[n-1]['path']) for n in numbers]
                     break
                 except ValueError:
-                    print('Choose a listed number or 0 / 請輸入列表編號或 0。')
+                    print('Choose a listed number or 0.')
         state = args.state
         if state is None:
             legacy = home/'.codex/skill-manager-state'
             default = legacy if legacy.is_dir() else config_path.parent/'state'
             if interactive:
-                print('\n3. Receipts / 收據與備份：以前用過 skillctl，請沿用原目錄，才能保留管理歷史。')
+                print('\n3. Receipts and backups: if you have used skillctl before, reuse its state directory to retain your history.')
                 state = ask('State path [' + str(default) + ']: ').strip() or default
             else:
                 state = default
         config = make_config(source, targets, state, config_path)
-        print('\nPreview / 儲存前預覽: ' + str(config_path))
+        print('\nPreview: ' + str(config_path))
         print(json.dumps(config, ensure_ascii=False, indent=2))
-        print('Only the config file will be created / 只建立此設定檔，skills 與收據保持原樣。')
+        print('Only the config file will be created. Skills and receipts stay unchanged.')
         if args.dry_run:
-            print('Preview only; no files written / 僅預覽，未寫入檔案。')
+            print('Preview only; no files written.')
             return 0
-        if not args.yes and ask('Save configuration? / 儲存設定？ [y/N]: ').strip().lower() not in ('y', 'yes', '是'):
-            print('Cancelled; no files written / 已取消，未寫入檔案。')
+        if not args.yes and ask('Save configuration? [y/N]: ').strip().lower() not in ('y', 'yes', '是'):
+            print('Cancelled; no files written.')
             return 0
         # Revalidate after the user has reviewed the proposal. Exclusive creation
         # prevents another setup process or existing configuration being replaced.
@@ -188,9 +188,9 @@ def run(args, config_path, *, home=None, ask=None):
         config_path.parent.mkdir(parents=True, exist_ok=True)
         with config_path.open('x', encoding='utf-8') as stream:
             stream.write(json.dumps(config, ensure_ascii=False, indent=2) + '\n')
-        print('Saved / 已儲存: ' + str(config_path))
+        print('Saved: ' + str(config_path))
         next_steps(config_path, config)
         return 0
     except (EOFError, KeyboardInterrupt):
-        print('\nCancelled; no configuration saved / 已取消，未儲存設定。')
+        print('\nCancelled; no configuration saved.')
         return 130

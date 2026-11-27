@@ -2,8 +2,6 @@
 
 **Update your AI skills. Keep your changes.**
 
-更新 AI skills，保留你自己的修改。
-
 You customize a skill for your project. Its upstream version changes.
 skillctl shows what changed, protects your instructions from being overwritten,
 and lets you preview a merge or keep your local version.
@@ -12,7 +10,6 @@ Works with local skill directories for **Codex, Pi / Orca Pi Chat, Claude Code
 and Cursor**. Run it when you need it. No running service or API key is needed
 for setup, installation or update management.
 
-[繁體中文：從這裡開始](docs/quickstart.zh-TW.md) ·
 [30-second walkthrough](docs/demo.md) · [Full reference](docs/guide.md)
 
 ## See it in 30 seconds
@@ -95,10 +92,6 @@ In a new agent session, ask:
 > Read the installed skillctl-manager SKILL.md. Show my skills and explain
 > which updates would overwrite local changes. Preview only.
 
-Or in Chinese:
-
-> 用 skillctl-manager 看哪些 skills 有更新，說明哪些會影響我的修改，先不要套用。
-
 Installation confirms files are present. To confirm your agent loaded the skill,
 check its tool history for a successful read of that `SKILL.md`.
 
@@ -109,9 +102,9 @@ check its tool history for a successful read of that `SKILL.md`.
 | Bring existing skills under management | [Scan and adopt](docs/guide.md#manage-the-skills-you-already-have) |
 | Keep, merge or undo local changes | [Resolve a blocked update](docs/guide.md#understand-and-resolve-a-blocked-update) |
 | Choose a harness or diagnose paths | [Targets and doctor](docs/guide.md#choose-an-agent) |
-| Use an optional local management page | [Dashboard guide](docs/dashboard.zh-TW.md) |
-| Check 7 / 30-day usage and quality | [Usage and its limits](docs/usage.zh-TW.md) |
-| Record lessons or compare skill versions | [Learning and comparison](skills/skillctl-manager/references/learning-and-comparison.md) |
+| Use an optional local management page | [Dashboard overview](docs/guide.md#local-management-page) |
+| Check 7 / 30-day usage and quality | [Usage and its limits](docs/guide.md#usage-and-quality-together) |
+| Record lessons or compare skill versions | [Learning and comparison](docs/guide.md#capture-lessons-and-compare-skill-versions-without-a-server) |
 
 Usage is a lower bound of confirmed Codex `SKILL.md` reads, not successful tasks.
 Quality reports are version-bound text checks, not real-world certification.

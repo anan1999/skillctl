@@ -4,13 +4,13 @@ Start with the [30-second demo and setup](../README.md). This page contains the 
 
 ## Manage skills by asking your agent — no service required
 
-Install [skillctl-manager](../skills/skillctl-manager/SKILL.md) and ask in Chinese:
+Install [skillctl-manager](../skills/skillctl-manager/SKILL.md) and ask:
 
-> 用 skillctl-manager 查最近 7 天、30 天哪些 skills 常用，以及它們的品質。
+> Use skillctl-manager to show my most-used skills over 7 and 30 days and their quality.
 >
-> 把 example-skill 裝到指定的 Pi 專案；先預覽。
+> Install example-skill in the selected Pi project. Preview first.
 >
-> 看哪些 skills 有更新，說明本機修改為什麼擋住更新，先不要改。
+> Explain available updates and why local changes block them. Do not apply anything yet.
 
 The skill runs a one-shot Python CLI using the existing `skillctl.py` manager.
 It starts no HTTP server, background worker or model call. Usage queries reuse
@@ -89,7 +89,7 @@ python dashboard_demo.py --open
 ```
 
 The initial screen offers a guided, read-only log-analysis prompt workflow.
-Choose **管理技能 / Manage skills**, then `adopt-demo` to preview and adopt an existing copy, `merge-demo` to combine
+Choose **Manage skills**, then `adopt-demo` to preview and adopt an existing copy, `merge-demo` to combine
 non-overlapping edits, or `conflict-demo` to inspect a blocked merge and choose
 keep-local instead. All demo files live in a temporary directory; stop the demo
 with Ctrl+C to clean them up.
@@ -126,7 +126,7 @@ only the targets chosen at startup. It does not run skill scripts, fetch remote
 machines, or publish files to GitHub. This is a local management app, not a hosted
 multi-user service. Keep the server terminal running while using the page.
 
-See [管理頁面指南](dashboard.zh-TW.md) and
+See [Dashboard guide (Traditional Chinese)](dashboard.zh-TW.md) and
 [dashboard verification](dashboard-verification.md).
 
 ## Usage and quality together
@@ -147,7 +147,7 @@ text or session identifiers. Run it again to refresh the snapshot; switching
 periods or rescanning reloads the report. Missing reports and unsupported harnesses
 (including Pi) display an explicit status, not zero. Invalid or incomplete
 evidence cannot silently become a successful read. Keep real usage reports local.
-See [使用統計操作與限制](usage.zh-TW.md).
+See [Usage guide and limitations (Traditional Chinese)](usage.zh-TW.md).
 
 `python quality_demo.py --open` demonstrates both panels with synthetic data:
 `failure-triage` has 3 reads / 2 conversations in 7 days and 8 / 4 in 30 days.
@@ -161,7 +161,7 @@ Try the panel without private skills, credentials, or model calls:
 python quality_demo.py --open
 ```
 
-Choose **管理技能 / Manage skills** and select a skill. The temporary demo
+Choose **Manage skills** and select a skill. The temporary demo
 deliberately shows passed, failed, stale, and untested examples. Its
 `DEMO-NO-MODEL` results are fixtures, not actual model evaluations.
 
@@ -185,7 +185,7 @@ python skill_dashboard.py --source /path/to/upstream --target "Local=/path/to/sk
 Preparation and grading use no network. Generated plans contain local skill
 instructions: keep them private. The three evaluated skills are user-supplied;
 the repository does not bundle private SYSCLAW instructions or Gateway credentials.
-See [品質測試操作與限制](quality.zh-TW.md).
+See [Quality guide and limitations (Traditional Chinese)](quality.zh-TW.md).
 The [recorded pilot result](../quality/pilot-result.json) and
 [run summary](../quality/pilot-run-summary.json) contain the actual 2026-11-26
 text-model trial: 12/12 cases passed on `claude-sonnet-5-5`, one attempt per case.

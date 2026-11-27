@@ -1,5 +1,21 @@
 # Onboarding verification — 2026-11-27
 
+## English presentation follow-up
+
+The README, demo, initialization prompts, manager CLI explanatory notes and
+first-time setup reference now use English. The public demo screenshot was
+regenerated from a successful file-management run. Unicode names and paths are
+still supported; existing localized reference documents remain available.
+
+The affected initializer, demo and manager suites ran **22 tests: 21 passed and
+1 skipped** because this Windows account cannot create symlinks. The offline
+Chrome checks also passed again: all steps, merged content, replay, refresh,
+keyboard activation, 390-pixel layout, JavaScript-disabled fallback, and no
+external requests or page errors. The English desktop screenshot was visually
+checked. This wording update did not rerun the full suite described below.
+
+## Initial onboarding implementation
+
 This change adds guided initialization and replaces the original drift-only demo
 with a three-step walkthrough ending in a verified merge. The README now leads
 with the problem, runnable demo and setup; advanced commands remain in the

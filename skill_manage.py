@@ -146,7 +146,7 @@ class Management:
         return {'days': days, 'refreshed': refresh, 'scope': probe['scope'],
                 'window_end': probe['window_end'], 'coverage': probe['coverage'],
                 'partial': probe['partial'], 'stale': probe['stale'], 'is_fixture': probe['is_fixture'],
-                'skills': results, 'note': '確認讀取 SKILL.md 的最低次數；不是完成任務或特定安裝副本的使用量。'}
+                'skills': results, 'note': 'Lower bound of confirmed SKILL.md reads; not completed tasks or usage of a specific installed copy.'}
 
     def quality(self, name=None, label=None):
         label, manager = self.manager(label)
@@ -163,7 +163,7 @@ class Management:
             except (ValueError, OSError) as error:
                 results[item] = {'status': 'error', 'error': str(error)}
         return {'target': label, 'path': str(manager.target), 'skills': results,
-                'note': '既有文字模擬品質報告，已比對目前檔案雜湊；未執行模型、技能腳本或裝置驗證。'}
+                'note': 'Existing text-simulation quality reports checked against current file hashes; no models, skill scripts or devices were run.'}
 
     def doctor(self, name=None, label=None):
         _, manager = self.manager(label)
@@ -217,7 +217,7 @@ class Management:
         return {'ok': result.get('ok', True), 'target': label, 'path': str(manager.target),
                 'action': action, 'name': name, 'plan_id': plan_id,
                 'expires_in_seconds': 600 if plan_id else 0, 'result': result, 'comparison': comparison,
-                'note': '預覽只保存本機計畫，不修改技能。套用前需要使用者授權；檔案或收據改變會阻擋。'}
+                'note': 'Preview saves only a local plan, without changing skills. Applying requires user authorization; changed files or receipts block it.'}
 
     def apply(self, plan_id, label=None):
         if not isinstance(plan_id, str) or not re.fullmatch('[a-f0-9]{32}', plan_id):
