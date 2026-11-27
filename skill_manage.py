@@ -12,6 +12,7 @@ from skillctl_content import is_link, valid_name
 from skill_quality import assess as assess_quality, parse_json
 from skill_usage import assess as assess_usage, collect, write_report
 import skill_workflow as workflow
+import skill_lock
 from skillctl import write_json
 
 DEFAULT_CONFIG = Path.home() / '.config/skillctl/manager.json'
@@ -253,6 +254,20 @@ def main(argv=None):
     import skill_init
     skill_init.add_parser(sub)
     sub.add_parser('locations')
+    locked = sub.add_parser('lock', help='Create, inspect and restore a portable project lockfile')
+    lock_sub = locked.add_subparsers(dest='lock_action', required=True)
+    lock_create = lock_sub.add_parser('create', help='Preview a lockfile of managed installed skills, including local edits')
+    lock_create.add_argument('names', nargs='*')
+    lock_restore = lock_sub.add_parser('restore', help='Preview restoring exact locked contents')
+    lock_restore.add_argument('--keep-local', action='store_true', help='Skip local conflicts without changing their bytes or receipts')
+    lock_check = lock_sub.add_parser('check', help='Compare installed file hashes with a lockfile')
+    lock_inspect = lock_sub.add_parser('inspect', help='Inspect pins without a configuration or network')
+    for command in (lock_create, lock_restore, lock_check, lock_inspect):
+        command.add_argument('--file', type=Path, default=Path('skillctl.lock.json'))
+    lock_apply = lock_sub.add_parser('apply', help='Apply an unexpired lock preview to its bound target')
+    lock_apply.add_argument('plan_id')
+    for command in (lock_create, lock_restore, lock_check, lock_apply):
+        command.add_argument('--target', help='Configured target label')
     listing = sub.add_parser('list')
     listing.add_argument('--query', default='')
     usage = sub.add_parser('usage')
@@ -289,6 +304,11 @@ def main(argv=None):
     try:
         if args.command == 'init':
             return skill_init.run(args, args.config)
+        if args.command == 'lock' and args.lock_action == 'inspect':
+            value, _, sha = skill_lock.load(args.file)
+            print(json.dumps({'ok': True, 'sha256': sha, 'skills': skill_lock.summary(value),
+                              'note': 'Portable content snapshot, not a signature or behavior certificate.'}, ensure_ascii=False, indent=2))
+            return 0
         app = Management(load_config(args.config))
         if args.command == 'locations':
             result = app.locations()
@@ -301,6 +321,16 @@ def main(argv=None):
         elif args.command == 'impact':
             _, manager = app.manager(args.target)
             result = workflow.impact(manager, args.name)
+        elif args.command == 'lock':
+            _, manager = app.manager(args.target)
+            if args.lock_action == 'create':
+                result = skill_lock.create_preview(manager, args.file, args.names)
+            elif args.lock_action == 'restore':
+                result = skill_lock.restore_preview(manager, args.file, args.keep_local)
+            elif args.lock_action == 'check':
+                result = skill_lock.check(manager, args.file)
+            else:
+                result = skill_lock.apply(manager, args.plan_id)
         elif args.command == 'learn':
             _, manager = app.manager(args.target)
             result = (workflow.record_learning(manager, read_object(args.input)) if args.learn_action == 'record'

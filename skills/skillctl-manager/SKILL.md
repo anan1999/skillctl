@@ -33,6 +33,11 @@ python -B -X utf8 "<skill-dir>/scripts/manage.py" locations
 
 ## 安裝與更新
 
+For project version pinning or restoring skills on another machine, read
+[references/project-lockfile.md](references/project-lockfile.md). Use `lock create`
+or `lock restore` to preview, then `lock apply` only within the current authorization.
+Protect destination edits; report kept copies separately from exact hash matches.
+
 先預覽，向使用者說明目標、受影響檔案和衝突。預覽會保存一份本機計畫，技能內容保持不變。若使用者已明確授權該技能在該目標的安裝／更新，且預覽符合範圍、沒有衝突，可接續 `apply PLAN_ID --target "名稱"`，不重複索取同一授權；僅問「有什麼更新／先看看」則停在預覽。
 
 遇到 local drift、未納管或保留的自訂內容，展示差異並說明接管、保留或合併的影響。未指定策略時請使用者選擇，不以重新安裝、刪除副本、手改收據等方式解除阻擋。計畫十分鐘到期、已使用或檔案／收據有變時，重新預覽；不要自行修改計畫或重試舊 ID。

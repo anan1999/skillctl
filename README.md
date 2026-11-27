@@ -97,6 +97,35 @@ check its tool history for a successful read of that `SKILL.md`.
 
 ## Go further when you need it
 
+### Pin a project's skills and restore them elsewhere
+
+Capture the installed versions, including your local instructions, in one
+portable `skillctl.lock.json`. Preview first, then apply the returned plan:
+
+```sh
+python -X utf8 skill_manage.py lock create --file /path/to/project/skillctl.lock.json --target "Project"
+python -X utf8 skill_manage.py lock apply PLAN_ID --target "Project"
+```
+
+On another machine, configure its target, copy the lockfile, and preview a restore:
+
+```sh
+python -X utf8 skill_manage.py lock restore --file /path/to/project/skillctl.lock.json --target "Project"
+python -X utf8 skill_manage.py lock apply PLAN_ID --target "Project"
+python -X utf8 skill_manage.py lock check --file /path/to/project/skillctl.lock.json --target "Project"
+```
+
+Snapshots restore offline without the original source path. Destination edits
+block the batch; explicit `--keep-local` skips conflicting copies and reports
+any remaining differences. Unlisted skills stay untouched. The lockfile includes
+full skill content, so review it before sharing. It pins files, not AI behavior
+or runtime dependencies.
+
+Try `python -X utf8 lock_demo.py` for a disposable two-machine walkthrough.
+[Lockfile guide and limitations](docs/project-lockfile.md)
+
+### Other workflows
+
 | I want to… | Start here |
 | --- | --- |
 | Bring existing skills under management | [Scan and adopt](docs/guide.md#manage-the-skills-you-already-have) |

@@ -411,7 +411,7 @@ class Manager:
                                  'advice': 'Linked skills are not modified. Select their real containing directory explicitly.'})
         return rows
 
-    def record(self, name, prepared, upstream, replace=True):
+    def record(self, name, prepared, upstream, replace=True, origin=None):
         """Caller holds the operation lock. Persist baseline and rollback atomically with receipt."""
         destination = self.target / name
         current = fingerprint(destination)
@@ -437,10 +437,13 @@ class Manager:
         try:
             if fingerprint(destination) != desired:
                 raise ValueError('Installed hash verification failed')
-            db['installed'][name] = {'files': desired, 'source': str(self.source) if upstream is not None else None,
-                'source_revision': source_revision(self.source) if upstream is not None else {},
+            db['installed'][name] = {'files': desired,
+                'source': (('lockfile:' + origin['lockfile_sha256']) if origin else str(self.source)) if upstream is not None else None,
+                'source_revision': origin['source_revision'] if origin else (source_revision(self.source) if upstream is not None else {}),
                 'upstream_files': upstream_files, 'baseline': str(base) if upstream is not None else None,
                 'installed_at': datetime.now(timezone.utc).isoformat()}
+            if origin:
+                db['installed'][name]['lockfile_sha256'] = origin['lockfile_sha256']
             db['history'].setdefault(name, []).append(record)
             write_json(self.db_path, db)
         except BaseException:
