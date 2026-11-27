@@ -250,6 +250,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', type=Path, default=DEFAULT_CONFIG)
     sub = parser.add_subparsers(dest='command', required=True)
+    import skill_init
+    skill_init.add_parser(sub)
     sub.add_parser('locations')
     listing = sub.add_parser('list')
     listing.add_argument('--query', default='')
@@ -285,6 +287,8 @@ def main(argv=None):
         command.add_argument('--target', help='Configured target label, not an arbitrary path')
     args = parser.parse_args(argv)
     try:
+        if args.command == 'init':
+            return skill_init.run(args, args.config)
         app = Management(load_config(args.config))
         if args.command == 'locations':
             result = app.locations()

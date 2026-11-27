@@ -6,6 +6,12 @@
 
 設定檔預設是 `~/.config/skillctl/manager.json`。所有路徑使用實際絕對路徑；下例是格式示意，請換成已核對的位置：
 
+首次使用可在 checkout 執行 `python -X utf8 skill_manage.py init`。引導會列出
+使用者與指定專案的標準目錄，依使用者選擇預覽來源、目標與收據位置，再建立設定。
+既有設定保持原樣；初始化不安裝或接管 skills。非互動執行時，明確傳入
+`--source`、`--target "名稱=路徑"`、`--state`，使用 `--dry-run` 預覽，獲授權後
+才改成 `--yes` 儲存。自訂 `--config` 放在 `init` 前面。
+
 ```json
 {
   "schema_version": 1,
@@ -38,9 +44,14 @@ python -B -X utf8 "<skill-dir>/scripts/manage.py" --repo "/absolute/path/to/skil
 
 安裝此 skill 可使用 checkout 的原有 CLI（下例先預覽，再於已授權時套用）：
 
+若來源是 skillctl checkout，也可沿用初始化設定，用
+`python skill_manage.py preview install skillctl-manager --target "名稱"` 取得計畫，
+再以 `apply PLAN_ID --target "名稱"` 套用。若日常來源是另一份技能集合，以下直接
+安裝範例的 `--target` 與 `--state` 必須採用 `locations` 顯示的實際值，保留既有管理歷史。
+
 ```text
-python skillctl.py --source "/absolute/path/to/skillctl" install skillctl-manager --agent codex --scope user --dry-run
-python skillctl.py --source "/absolute/path/to/skillctl" install skillctl-manager --agent codex --scope user
+python skillctl.py --source "/absolute/path/to/skillctl" --state "/configured/receipts" install skillctl-manager --target "/configured/skills" --dry-run
+python skillctl.py --source "/absolute/path/to/skillctl" --state "/configured/receipts" install skillctl-manager --target "/configured/skills"
 ```
 
 不同 harness 的技能載入方式由該 harness 決定；安裝後若目前對話尚未發現，可在新對話呼叫，或明確請 AI 讀取安裝後的 SKILL.md。這不要求任何常駐服務。
